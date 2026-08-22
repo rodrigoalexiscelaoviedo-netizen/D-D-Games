@@ -1,0 +1,32 @@
+:root {
+  /* --- Superficies (de más oscuro a más elevado) --- */
+  --bg-base: #1a1410;
+  --bg-surface: #241c16;
+  --bg-surface-2: #2e241c;
+  --bg-parchment: #ede4d3;
+
+  /* --- Tinta / texto --- */
+  --ink: #ede4d3;
+  --ink-muted: #b3a488;
+  --ink-dark: #2a2018;
+
+  /* --- Acentos --- */
+  --gold: #c9a24b;
+  --gold-bright: #e3bd63;
+  --wine: #7c2d3a;
+  --wine-bright: #9c3a4a;
+  --moss: #5a6b3b;
+
+  /* --- Bordes --- */
+  --border-gold: rgba(201, 162, 75, 0.35);
+  --border-soft: rgba(237, 228, 211, 0.1);
+
+  /* --- Tipografía --- */
+  --font-title: 'Cinzel', serif;
+  --font-body: 'EB Garamond', Georgia, serif;
+
+  /* --- Radios y sombras --- */
+  --radius: 4px;
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-inset: inset 0 0 60px rgba(0, 0, 0, 0.4);
+}
