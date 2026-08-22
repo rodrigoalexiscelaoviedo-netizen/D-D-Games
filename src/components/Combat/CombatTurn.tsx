@@ -26,12 +26,23 @@ export const CombatTurn = () => {
         .eq('combat_id', combatId)
         .order('initiative_roll', { ascending: false });
 
-      setParticipants(partData || []);
+      const withInitiative = (partData || []).map((p) => ({
+        ...p,
+        initiative_roll: p.initiative_roll || Math.floor(Math.random() * 20) + 1 + Math.floor((p.dexterity - 10) / 2),
+      })).sort((a, b) => b.initiative_roll - a.initiative_roll);
+
+      setParticipants(withInitiative);
       setLoading(false);
 
-      if (partData && partData.length > 0) {
-        setCurrentParticipant(partData[0]);
+      if (withInitiative.length > 0) {
+        setCurrentParticipant(withInitiative[0]);
         setRound(1);
+
+        if (!withInitiative[0].is_player) {
+          setTimeout(() => {
+            enemyTurn();
+          }, 2000);
+        }
       }
     })();
   }, [combatId]);
@@ -42,8 +53,11 @@ export const CombatTurn = () => {
     audio.play().catch(() => {});
   };
 
-  const roll = async (target: any) => {
+  const roll = async () => {
     playSound('roll_dice');
+    const enemies_list = participants.filter((e) => !e.is_player && e.hp_current > 0);
+    if (enemies_list.length === 0) return;
+    const target = enemies_list[Math.floor(Math.random() * enemies_list.length)];
     const roll20 = rollD20();
     const isCrit = isCritical(roll20);
     const isMiss = isFail(roll20);
@@ -87,7 +101,8 @@ export const CombatTurn = () => {
   };
 
   const enemyTurn = async () => {
-    if (!currentParticipant?.is_player) {
+    const current = participants.find(p => p.id === currentParticipant?.id);
+    if (!current?.is_player) {
       const players = participants.filter((p) => p.is_player && p.hp_current > 0);
       if (players.length > 0) {
         const target = players[Math.floor(Math.random() * players.length)];
@@ -95,21 +110,25 @@ export const CombatTurn = () => {
         const hit = isHit(roll20, target.armor_class);
         const damage = hit ? calculateDamage(6, isCritical(roll20)) : 0;
 
-        const message = hit
-          ? `⚔️ ${currentParticipant.name} ataca a ${target.name}: d20 ${roll20} → Golpe por ${damage} daño`
-          : `❌ ${currentParticipant.name} ataca a ${target.name}: d20 ${roll20} → Falla`;
+        playSound(isCritical(roll20) ? 'critical' : hit ? 'hit' : 'miss');
 
-        setLog([...log, message]);
+        const message = isCritical(roll20)
+          ? `🎯 ${current.name} tiró 20: ¡CRÍTICO! ${target.name} recibe ${damage} daño`
+          : hit
+          ? `⚔️ ${current.name} tiró ${roll20}: Golpea a ${target.name} por ${damage} daño`
+          : `❌ ${current.name} tiró ${roll20}: Falla contra ${target.name}`;
+
+        setLog((prev) => [...prev, message]);
 
         if (hit && damage > 0) {
           const newHp = Math.max(0, target.hp_current - damage);
           await supabase
             .from('combat_participants')
-            .update({ hp_current: newHp })
+            .update({ hp_current: newHp, status: newHp <= 0 ? 'unconscious' : 'ready' })
             .eq('id', target.id);
 
-          setParticipants(
-            participants.map((p) => (p.id === target.id ? { ...p, hp_current: newHp } : p))
+          setParticipants((prev) =>
+            prev.map((p) => (p.id === target.id ? { ...p, hp_current: newHp } : p))
           );
         }
       }
@@ -140,7 +159,9 @@ export const CombatTurn = () => {
     setSelectedAction(null);
 
     if (next && !next.is_player) {
-      setTimeout(() => enemyTurn(), 1500);
+      setTimeout(() => {
+        enemyTurn();
+      }, 2000);
     }
   };
 
@@ -172,11 +193,10 @@ export const CombatTurn = () => {
 
   const enemies = participants.filter((p) => !p.is_player);
   const allEnemiesDead = enemies.every((e) => e.hp_current <= 0);
-  const theme = COMBAT_THEMES.find((t) => t.id === selectedTheme) || COMBAT_THEMES[0];
   const tip = CLASS_COMBAT_TIPS[currentParticipant?.character_class] || '';
 
   return (
-    <div className="combat-container" style={{ background: theme.bg }}>
+    <div className="combat-container" data-theme={selectedTheme}>
       <header className="combat-header">
         <div className="header-info">
           <h1>Ronda {round}</h1>
@@ -253,16 +273,18 @@ export const CombatTurn = () => {
                 className={`action-btn ${selectedAction === action.id ? 'selected' : ''}`}
                 onClick={() => {
                   setSelectedAction(action.id);
-                  if (action.id === 'attack') {
-                    const targets = enemies.filter((e) => e.hp_current > 0);
-                    if (targets.length > 0) roll(targets[Math.floor(Math.random() * targets.length)]);
-                  } else if (action.id === 'help') {
+                  if (action.id === 'attack') roll();
+                  else if (action.id === 'help') {
+                    setLog((prev) => [...prev, `👥 ${currentParticipant.name} ayuda a un aliado`]);
                     nextTurn();
                   } else if (action.id === 'defend') {
-                    setLog([...log, `🛡️ ${currentParticipant.name} se defiende (+2 CA)`]);
+                    setLog((prev) => [...prev, `🛡️ ${currentParticipant.name} se defiende (+2 CA)`]);
+                    nextTurn();
+                  } else if (action.id === 'spell') {
+                    setLog((prev) => [...prev, `✨ ${currentParticipant.name} lanza un hechizo`]);
                     nextTurn();
                   } else if (action.id === 'flee') {
-                    setLog([...log, `🏃 ${currentParticipant.name} intenta escapar!`]);
+                    setLog((prev) => [...prev, `🏃 ${currentParticipant.name} intenta escapar`]);
                     nextTurn();
                   }
                 }}
@@ -306,9 +328,14 @@ export const CombatTurn = () => {
         <div className="combat-result victory">
           <h2>⚔️ ¡COMBATE GANADO! ⚔️</h2>
           <p>Todos los enemigos fueron derrotados.</p>
-          <button onClick={endCombat} className="btn-primary">
-            Terminar Sesión
-          </button>
+          <div className="result-buttons">
+            <button onClick={() => setShowLoot(true)} className="btn-secondary">
+              💾 Ver Loot
+            </button>
+            <button onClick={endCombat} className="btn-primary">
+              ✓ Guardar y Volver
+            </button>
+          </div>
         </div>
       )}
 

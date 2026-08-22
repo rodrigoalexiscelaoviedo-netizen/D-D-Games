@@ -719,7 +719,27 @@ textarea.input-field {
 .combat-container {
   min-height: 100vh;
   padding-bottom: 2rem;
-  transition: background 0.5s ease;
+  transition: background 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.combat-container[data-theme="medieval"] {
+  background: linear-gradient(135deg, #1a0f0a 0%, #3a2a1f 50%, #1a0f0a 100%);
+}
+
+.combat-container[data-theme="dark_forest"] {
+  background: linear-gradient(135deg, #0a1f0a 0%, #1a3a1a 50%, #0a2010 100%);
+}
+
+.combat-container[data-theme="dungeon"] {
+  background: linear-gradient(135deg, #2a1010 0%, #1a0a0a 50%, #3a1010 100%);
+}
+
+.combat-container[data-theme="tavern"] {
+  background: linear-gradient(135deg, #3a2a0f 0%, #4a3a1f 50%, #2a1a05 100%);
+}
+
+.combat-container[data-theme="magical"] {
+  background: linear-gradient(135deg, #1a0a3a 0%, #3a1a5a 50%, #1a0a2a 100%);
 }
 
 .combat-header {
@@ -727,9 +747,10 @@ textarea.input-field {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem 2rem;
-  background: rgba(26, 20, 16, 0.8);
-  border-bottom: 2px solid var(--gold);
-  backdrop-filter: blur(10px);
+  background: rgba(26, 20, 16, 0.9);
+  border-bottom: 3px solid var(--gold);
+  backdrop-filter: blur(15px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
 }
 .combat-header h1 { font-size: 2rem; }
 .header-info { flex: 1; }
@@ -756,14 +777,22 @@ textarea.input-field {
 .state-column h3 { color: var(--gold); margin-bottom: 1rem; }
 
 .participant-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-gold);
+  background: rgba(26, 20, 16, 0.8);
+  border: 2px solid var(--border-gold);
   border-radius: var(--radius);
   padding: 1rem;
-  transition: all 0.2s;
+  transition: all 0.3s;
+  backdrop-filter: blur(5px);
 }
-.participant-card.active { border-color: var(--gold); background: rgba(201,162,75,0.1); }
+.participant-card.active {
+  border-color: var(--gold);
+  background: rgba(201, 162, 75, 0.15);
+  box-shadow: 0 0 15px rgba(201, 162, 75, 0.3);
+}
 .participant-card.enemy { border-color: var(--wine); }
+.participant-card.enemy.active {
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+}
 
 .participant-name { display: block; font-weight: 600; margin-bottom: 0.5rem; }
 .hp-bar {
@@ -893,6 +922,19 @@ textarea.input-field {
   border: 2px solid #22c55e;
 }
 .combat-result.victory h2 { color: #22c55e; }
+
+.result-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.result-buttons .btn-primary,
+.result-buttons .btn-secondary {
+  flex: 1;
+  max-width: 200px;
+}
 
 /* ===== WIKI ===== */
 .wiki-container { max-width: 900px; margin: 0 auto; padding: 1rem; }
