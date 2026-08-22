@@ -1,11 +1,30 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
 
 export const Dashboard = () => {
   const auth = useAuth();
+  const navigate = useNavigate();
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!auth.user) return;
+      const { data } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('user_id', auth.user.id)
+        .order('created_at', { ascending: false });
+      setCampaigns(data || []);
+      setLoading(false);
+    };
+    load();
+  }, [auth.user]);
 
   const handleLogout = async () => {
     await auth.logout();
-    // Router will redirect to / due to ProtectedRoute
   };
 
   return (
@@ -22,8 +41,33 @@ export const Dashboard = () => {
 
       <main className="dashboard-main">
         <section className="campaigns-grid">
-          <p>No tienes campañas aún.</p>
-          <button className="btn-primary">+ Crear campaña</button>
+          <button
+            onClick={() => navigate('/campaign/new')}
+            className="btn-primary btn-large"
+          >
+            + Crear campaña
+          </button>
+
+          {loading ? (
+            <p>Cargando campañas...</p>
+          ) : campaigns.length === 0 ? (
+            <p>No tienes campañas aún. ¡Creá una para empezar!</p>
+          ) : (
+            <div className="campaigns-list">
+              {campaigns.map((campaign) => (
+                <div
+                  key={campaign.id}
+                  className="campaign-card"
+                  onClick={() => navigate(`/campaign/${campaign.id}`)}
+                >
+                  <h3>{campaign.name}</h3>
+                  <p className="campaign-card-meta">
+                    {campaign.system} · {campaign.playstyle}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </main>
     </div>
