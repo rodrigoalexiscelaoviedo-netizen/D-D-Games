@@ -23,26 +23,30 @@ export const CombatTurn = () => {
       const { data: partData } = await supabase
         .from('combat_participants')
         .select('*')
-        .eq('combat_id', combatId)
-        .order('initiative_roll', { ascending: false });
+        .eq('combat_id', combatId);
 
-      const withInitiative = (partData || []).map((p) => ({
-        ...p,
-        initiative_roll: p.initiative_roll || Math.floor(Math.random() * 20) + 1 + Math.floor((p.dexterity - 10) / 2),
-      })).sort((a, b) => b.initiative_roll - a.initiative_roll);
+      if (!partData || partData.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      const withInitiative = partData
+        .map((p) => ({
+          ...p,
+          initiative_roll: p.initiative_roll ||
+            Math.floor(Math.random() * 20) + 1 + Math.floor((p.dexterity - 10) / 2),
+        }))
+        .sort((a, b) => b.initiative_roll - a.initiative_roll);
 
       setParticipants(withInitiative);
+      setCurrentParticipant(withInitiative[0]);
+      setRound(1);
       setLoading(false);
 
-      if (withInitiative.length > 0) {
-        setCurrentParticipant(withInitiative[0]);
-        setRound(1);
-
-        if (!withInitiative[0].is_player) {
-          setTimeout(() => {
-            enemyTurn();
-          }, 2000);
-        }
+      if (withInitiative[0] && !withInitiative[0].is_player) {
+        setTimeout(() => {
+          enemyTurn();
+        }, 2000);
       }
     })();
   }, [combatId]);
