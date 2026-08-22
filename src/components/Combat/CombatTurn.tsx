@@ -105,9 +105,13 @@ export const CombatTurn = () => {
   };
 
   const enemyTurn = async () => {
-    const current = participants.find(p => p.id === currentParticipant?.id);
-    if (!current?.is_player) {
+    console.log('enemyTurn() called', currentParticipant);
+
+    if (!currentParticipant?.is_player) {
+      console.log('Current participant is enemy, attacking...');
       const players = participants.filter((p) => p.is_player && p.hp_current > 0);
+      console.log('Available targets:', players);
+
       if (players.length > 0) {
         const target = players[Math.floor(Math.random() * players.length)];
         const roll20 = rollD20();
@@ -117,15 +121,18 @@ export const CombatTurn = () => {
         playSound(isCritical(roll20) ? 'critical' : hit ? 'hit' : 'miss');
 
         const message = isCritical(roll20)
-          ? `🎯 ${current.name} tiró 20: ¡CRÍTICO! ${target.name} recibe ${damage} daño`
+          ? `🎯 ${currentParticipant.name} tiró 20: ¡CRÍTICO! ${target.name} recibe ${damage} daño`
           : hit
-          ? `⚔️ ${current.name} tiró ${roll20}: Golpea a ${target.name} por ${damage} daño`
-          : `❌ ${current.name} tiró ${roll20}: Falla contra ${target.name}`;
+          ? `⚔️ ${currentParticipant.name} tiró ${roll20}: Golpea a ${target.name} por ${damage} daño`
+          : `❌ ${currentParticipant.name} tiró ${roll20}: Falla contra ${target.name}`;
 
+        console.log('Attack message:', message);
         setLog((prev) => [...prev, message]);
 
         if (hit && damage > 0) {
           const newHp = Math.max(0, target.hp_current - damage);
+          console.log('Updating HP:', target.name, newHp);
+
           await supabase
             .from('combat_participants')
             .update({ hp_current: newHp, status: newHp <= 0 ? 'unconscious' : 'ready' })
@@ -135,8 +142,14 @@ export const CombatTurn = () => {
             prev.map((p) => (p.id === target.id ? { ...p, hp_current: newHp } : p))
           );
         }
+      } else {
+        console.log('No players available');
       }
+    } else {
+      console.log('Current participant is player, skipping enemy turn');
     }
+
+    console.log('Calling nextTurn from enemyTurn');
     nextTurn();
   };
 
@@ -151,9 +164,15 @@ export const CombatTurn = () => {
   };
 
   const nextTurn = async () => {
-    const currentIndex = participants.findIndex((p) => p.id === currentParticipant.id);
+    console.log('nextTurn() - current participants:', participants);
+
+    const currentIndex = participants.findIndex((p) => p.id === currentParticipant?.id);
+    console.log('Current index:', currentIndex);
+
     const nextIndex = (currentIndex + 1) % participants.length;
     const next = participants[nextIndex];
+
+    console.log('Next participant:', next);
 
     if (nextIndex === 0) {
       setRound((r) => r + 1);
@@ -163,9 +182,13 @@ export const CombatTurn = () => {
     setSelectedAction(null);
 
     if (next && !next.is_player) {
+      console.log('Next is enemy, scheduling enemy turn in 2 sec');
       setTimeout(() => {
+        console.log('Timeout fired, calling enemyTurn');
         enemyTurn();
       }, 2000);
+    } else {
+      console.log('Next is player, waiting for action');
     }
   };
 
