@@ -8,7 +8,7 @@ import { CampaignHome } from './components/Campaign/CampaignHome';
 import { CharacterForm } from './components/Character/CharacterForm';
 import { CharacterList } from './components/Character/CharacterList';
 import { CombatSetup } from './components/Combat/CombatSetup';
-import { CombatTurn } from './components/Combat/CombatTurn';
+import { CombatScreen } from './components/Combat/CombatScreen';
 import { CampaignWiki } from './components/Campaign/CampaignWiki';
 
 export default function App() {
@@ -77,7 +77,7 @@ export default function App() {
           path="/campaign/:campaignId/combat/:combatId"
           element={
             <ProtectedRoute>
-              <CombatTurn />
+              <CombatScreen />
             </ProtectedRoute>
           }
         />

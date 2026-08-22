@@ -1,190 +1,239 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { rollInitiative } from '../../lib/combat-engine';
 
 export const CombatSetup = () => {
   const { campaignId } = useParams();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [characters, setCharacters] = useState<any[]>([]);
-  const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]);
-  const [enemies, setEnemies] = useState<Array<{ name: string; hp: number; ac: number }>>([]);
-  const [newEnemy, setNewEnemy] = useState({ name: '', hp: 15, ac: 12 });
+  const [selectedChars, setSelectedChars] = useState<string[]>([]);
+  const [lineup, setLineup] = useState<any[]>([]);
+  const [custom, setCustom] = useState({ name: '', hp: 10, armor_class: 12, damage_dice: 6, attack_bonus: 3 });
+  const [showCustom, setShowCustom] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      const { data: chars } = await supabase
         .from('characters')
         .select('*')
         .eq('campaign_id', campaignId);
-      setCharacters(data || []);
+      setCharacters(chars || []);
+      setSelectedChars((chars || []).map((c) => c.id));
     })();
   }, [campaignId]);
 
-  const toggleCharacter = (id: string) => {
-    setSelectedCharacters((p) =>
-      p.includes(id) ? p.filter((x) => x !== id) : [...p, id]
-    );
+  const addFromCustom = () => {
+    if (!custom.name.trim()) return;
+    const count = lineup.filter((l) => l.name.startsWith(custom.name)).length;
+    setLineup([
+      ...lineup,
+      {
+        ...custom,
+        name: count === 0 ? custom.name : `${custom.name} ${count + 1}`,
+        dexterity: 10,
+      },
+    ]);
+    setCustom({ name: '', hp: 10, armor_class: 12, damage_dice: 6, attack_bonus: 3 });
+    setShowCustom(false);
   };
 
-  const addEnemy = () => {
-    if (!newEnemy.name.trim()) return;
-    setEnemies([...enemies, newEnemy]);
-    setNewEnemy({ name: '', hp: 15, ac: 12 });
-  };
-
-  const startCombat = async () => {
-    if (selectedCharacters.length === 0 || enemies.length === 0) {
-      alert('Elegí al menos un personaje y un enemigo');
+  const start = async () => {
+    setError('');
+    if (selectedChars.length === 0 || lineup.length === 0) {
+      setError('Necesitás al menos un personaje y un enemigo');
       return;
     }
     setLoading(true);
     try {
-      const { data: combat } = await supabase
+      const { data: combat, error: cErr } = await supabase
         .from('combats')
-        .insert({
-          campaign_id: campaignId,
-          status: 'active',
-        })
+        .insert({ campaign_id: campaignId, status: 'active', round: 1, turn_index: 0, log: '[]' })
         .select()
         .single();
+      if (cErr || !combat) throw cErr || new Error('No se creó el combate');
 
-      if (!combat) throw new Error('No se creó combate');
-
-      const participants = [
-        ...selectedCharacters.map((charId) => {
-          const char = characters.find((c) => c.id === charId);
+      const rows = [
+        ...selectedChars.map((id) => {
+          const c = characters.find((x) => x.id === id);
+          const init = rollInitiative(c?.dex ?? 10);
           return {
             combat_id: combat.id,
-            character_id: charId,
-            name: char?.character_name,
+            character_id: id,
+            name: c?.character_name ?? 'Personaje',
             is_player: true,
-            hp_current: char?.hp_max || 10,
-            hp_max: char?.hp_max || 10,
-            armor_class: char?.armor_class || 10,
-            dexterity: char?.dex || 10,
+            hp_current: c?.hp_current ?? c?.hp_max ?? 10,
+            hp_max: c?.hp_max ?? 10,
+            armor_class: c?.armor_class ?? 10,
+            dexterity: c?.dex ?? 10,
+            initiative_roll: init.total,
+            status: 'ready',
           };
         }),
-        ...enemies.map((enemy) => ({
-          combat_id: combat.id,
-          character_id: null,
-          name: enemy.name,
-          is_player: false,
-          hp_current: enemy.hp,
-          hp_max: enemy.hp,
-          armor_class: enemy.ac,
-          dexterity: 10,
-        })),
+        ...lineup.map((e) => {
+          const init = rollInitiative(e.dexterity ?? 10);
+          return {
+            combat_id: combat.id,
+            character_id: null,
+            name: e.name,
+            is_player: false,
+            hp_current: e.hp,
+            hp_max: e.hp,
+            armor_class: e.armor_class,
+            dexterity: e.dexterity ?? 10,
+            initiative_roll: init.total,
+            status: 'ready',
+          };
+        }),
       ];
 
-      await supabase.from('combat_participants').insert(participants);
+      rows.sort((a, b) => b.initiative_roll - a.initiative_roll);
+      const withOrder = rows.map((r, i) => ({ ...r, turn_order: i }));
+
+      const { error: pErr } = await supabase.from('combat_participants').insert(withOrder);
+      if (pErr) throw pErr;
 
       navigate(`/campaign/${campaignId}/combat/${combat.id}`);
-    } catch (err) {
-      alert('Error: ' + (err instanceof Error ? err.message : 'desconocido'));
+    } catch (err: any) {
+      setError(err?.message || 'No se pudo iniciar el combate');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="combat-setup">
-      <header className="setup-header">
-        <button onClick={() => navigate(`/campaign/${campaignId}`)} className="btn-secondary">
-          ← Atrás
+    <div className="setup-page">
+      <header className="setup-head">
+        <button className="btn-secondary" onClick={() => navigate(`/campaign/${campaignId}`)}>
+          ← Campaña
         </button>
-        <h1>Preparar Combate</h1>
+        <h1>Preparar combate</h1>
       </header>
 
       {step === 1 && (
-        <div className="setup-section">
-          <h2>Paso 1: Elegí tus personajes</h2>
-          <div className="char-checkboxes">
-            {characters.map((c) => (
-              <label key={c.id} className="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={selectedCharacters.includes(c.id)}
-                  onChange={() => toggleCharacter(c.id)}
-                />
-                {c.character_name} ({c.character_class || 'N/A'})
-              </label>
-            ))}
+        <section className="setup-card">
+          <h2>¿Quiénes pelean?</h2>
+          <p className="hint">Tocá para incluir o sacar del combate.</p>
+          <div className="pick-grid">
+            {characters.map((c) => {
+              const on = selectedChars.includes(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`pick-card ${on ? 'on' : ''}`}
+                  onClick={() =>
+                    setSelectedChars(
+                      on ? selectedChars.filter((x) => x !== c.id) : [...selectedChars, c.id]
+                    )
+                  }
+                >
+                  <strong>{c.character_name}</strong>
+                  <span>{[c.race, c.character_class].filter(Boolean).join(' · ') || 'Sin clase'}</span>
+                  <span className="pick-stats">PV {c.hp_max ?? 10} · CA {c.armor_class ?? 10}</span>
+                </button>
+              );
+            })}
           </div>
-          <button onClick={() => setStep(2)} className="btn-primary">
-            Siguiente →
+          {characters.length === 0 && <p className="hint">No hay personajes en esta campaña todavía.</p>}
+          <button className="btn-primary block" onClick={() => setStep(2)}>
+            Siguiente: enemigos →
           </button>
-        </div>
+        </section>
       )}
 
       {step === 2 && (
-        <div className="setup-section">
-          <h2>Paso 2: Agregá enemigos</h2>
-          <p className="hint">Crea enemigos para esta batalla</p>
-          <div className="enemy-form">
-            <input
-              type="text"
-              placeholder="Nombre del enemigo"
-              value={newEnemy.name}
-              onChange={(e) => setNewEnemy({ ...newEnemy, name: e.target.value })}
-              className="input-field"
-            />
-            <label>
-              PV:
-              <input
-                type="number"
-                value={newEnemy.hp}
-                onChange={(e) => setNewEnemy({ ...newEnemy, hp: Number(e.target.value) })}
-                className="input-field"
-                style={{ width: '80px' }}
-              />
-            </label>
-            <label>
-              CA:
-              <input
-                type="number"
-                value={newEnemy.ac}
-                onChange={(e) => setNewEnemy({ ...newEnemy, ac: Number(e.target.value) })}
-                className="input-field"
-                style={{ width: '80px' }}
-              />
-            </label>
-            <button type="button" onClick={addEnemy} className="btn-secondary">
-              + Agregar
+        <section className="setup-card">
+          <h2>¿Contra qué pelean?</h2>
+          <p className="hint">Creá enemigos propios.</p>
+
+          {!showCustom ? (
+            <button className="btn-secondary block" onClick={() => setShowCustom(true)}>
+              + Crear enemigo
             </button>
-          </div>
-
-          <div className="enemies-list">
-            {enemies.map((e, i) => (
-              <div key={i} className="enemy-item">
-                <span>{e.name}</span>
-                <span>{e.hp} PV</span>
-                <span>CA {e.ac}</span>
-                <button
-                  type="button"
-                  onClick={() => setEnemies(enemies.filter((_, idx) => idx !== i))}
-                  className="btn-danger-outline"
-                >
-                  X
-                </button>
+          ) : (
+            <div className="custom-enemy">
+              <input
+                className="input-field"
+                placeholder="Nombre"
+                value={custom.name}
+                onChange={(e) => setCustom({ ...custom, name: e.target.value })}
+              />
+              <div className="mini-grid">
+                <label>
+                  PV
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={custom.hp}
+                    onChange={(e) => setCustom({ ...custom, hp: Number(e.target.value) })}
+                  />
+                </label>
+                <label>
+                  CA
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={custom.armor_class}
+                    onChange={(e) => setCustom({ ...custom, armor_class: Number(e.target.value) })}
+                  />
+                </label>
+                <label>
+                  Daño (d)
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={custom.damage_dice}
+                    onChange={(e) => setCustom({ ...custom, damage_dice: Number(e.target.value) })}
+                  />
+                </label>
+                <label>
+                  Bonif. ataque
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={custom.attack_bonus}
+                    onChange={(e) => setCustom({ ...custom, attack_bonus: Number(e.target.value) })}
+                  />
+                </label>
               </div>
-            ))}
-          </div>
+              <button className="btn-primary" onClick={addFromCustom}>
+                Agregar
+              </button>
+            </div>
+          )}
 
+          {lineup.length > 0 && (
+            <div className="lineup">
+              <h3>En esta batalla</h3>
+              {lineup.map((e, i) => (
+                <div key={i} className="lineup-row">
+                  <span>{e.name}</span>
+                  <span className="pick-stats">PV {e.hp} · CA {e.armor_class}</span>
+                  <button
+                    className="btn-danger-outline"
+                    onClick={() => setLineup(lineup.filter((_, idx) => idx !== i))}
+                  >
+                    Sacar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {error && <p className="error-text">{error}</p>}
           <div className="setup-buttons">
-            <button onClick={() => setStep(1)} className="btn-secondary">
+            <button className="btn-secondary" onClick={() => setStep(1)}>
               ← Atrás
             </button>
-            <button
-              onClick={startCombat}
-              disabled={loading || selectedCharacters.length === 0 || enemies.length === 0}
-              className="btn-primary"
-            >
-              {loading ? 'Iniciando...' : '¡Empezar Combate!'}
+            <button className="btn-primary" onClick={start} disabled={loading}>
+              {loading ? 'Tirando iniciativa...' : '¡Empezar!'}
             </button>
           </div>
-        </div>
+        </section>
       )}
     </div>
   );
