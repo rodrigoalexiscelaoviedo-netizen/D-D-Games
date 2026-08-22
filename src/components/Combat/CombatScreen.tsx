@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { resolveAttack, nextAliveIndex, isCombatOver, abilityMod } from '../../lib/combat-engine';
+import { resolveAttack, nextAliveIndex, isCombatOver, abilityMod, roll, skillCheck, getAbility } from '../../lib/combat-engine';
 import type { RollResult } from '../../lib/combat-engine';
 
 type Phase = 'awaiting_player' | 'awaiting_dm_continue' | 'showing_roll' | 'finished';
+type PickingFor = 'attack' | 'ability' | null;
 
 export const CombatScreen = () => {
   const { campaignId, combatId } = useParams();
@@ -17,7 +18,8 @@ export const CombatScreen = () => {
   const [phase, setPhase] = useState<Phase>('awaiting_player');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [pickingTarget, setPickingTarget] = useState(false);
+  const [pickingTarget, setPickingTarget] = useState<PickingFor>(null);
+  const [classMap, setClassMap] = useState<Record<string, string>>({});
 
   const refetch = useCallback(async () => {
     const { data: c } = await supabase
@@ -37,6 +39,19 @@ export const CombatScreen = () => {
       setLog(JSON.parse(c?.log || '[]'));
     } catch {
       setLog([]);
+    }
+
+    const charIds = (p || []).map((x) => x.character_id).filter(Boolean);
+    if (charIds.length > 0) {
+      const { data: chars } = await supabase
+        .from('characters')
+        .select('id, character_class')
+        .in('id', charIds);
+      const map: Record<string, string> = {};
+      (chars || []).forEach((c) => {
+        map[c.id] = c.character_class;
+      });
+      setClassMap(map);
     }
 
     const over = isCombatOver(p || []);
@@ -60,8 +75,10 @@ export const CombatScreen = () => {
   const current = participants[combat?.turn_index ?? 0];
   const enemies = participants.filter((p) => !p.is_player);
   const allies = participants.filter((p) => p.is_player);
-  const aliveEnemies = enemies.filter((e) => e.hp_current > 0);
+  const aliveEnemies = enemies.filter((e) => e.hp_current > 0 && !e.has_fled);
   const aliveAllies = allies.filter((a) => a.hp_current > 0);
+
+  const effectiveAC = (p: any) => (p?.armor_class ?? 10) + (p?.temp_ac_bonus ?? 0);
 
   const commitTurn = async (opts: { newLog: string[]; targetId?: string; newTargetHp?: number }) => {
     if (opts.targetId != null && opts.newTargetHp != null) {
@@ -91,6 +108,11 @@ export const CombatScreen = () => {
 
     const idx = combat?.turn_index ?? 0;
     const nextIdx = nextAliveIndex(list, idx);
+
+    if (list[nextIdx]?.temp_ac_bonus > 0) {
+      await supabase.from('combat_participants').update({ temp_ac_bonus: 0 }).eq('id', list[nextIdx].id);
+    }
+
     const newRound = nextIdx <= idx ? (combat?.round ?? 1) + 1 : combat?.round ?? 1;
 
     await supabase
@@ -104,21 +126,18 @@ export const CombatScreen = () => {
   const doAttack = async (target: any) => {
     if (busy || !current) return;
     setBusy(true);
-    setPickingTarget(false);
+    setPickingTarget(null);
 
-    const attackBonus = current.is_player ? abilityMod(current.dexterity) + 2 : 3;
-    const damageDice = current.is_player ? 8 : 6;
-
-    const result = resolveAttack(attackBonus, target.armor_class, damageDice);
+    const result = resolveAttack(current.attack_bonus ?? 2, effectiveAC(target), current.damage_dice ?? 8);
     setLastRoll({ ...result, actorName: current.name, targetName: target.name });
     setPhase('showing_roll');
 
     const newHp = result.hit ? Math.max(0, target.hp_current - result.damage) : target.hp_current;
     const line = result.hit
-      ? `${current.name} → ${target.name}: ${result.total} vs CA ${target.armor_class} · ${
+      ? `${current.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · ${
           result.critical ? 'CRÍTICO ' : ''
         }${result.damage} de daño${newHp <= 0 ? ' · cae' : ''}`
-      : `${current.name} → ${target.name}: ${result.total} vs CA ${target.armor_class} · falla`;
+      : `${current.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · falla`;
 
     setTimeout(async () => {
       await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: newHp });
@@ -126,12 +145,111 @@ export const CombatScreen = () => {
     }, 1600);
   };
 
-  const doSimpleAction = async (label: string) => {
+  const doDefend = async () => {
     if (busy || !current) return;
     setBusy(true);
     setLastRoll(null);
-    await commitTurn({ newLog: [...log, `${current.name}: ${label}`] });
+    await supabase.from('combat_participants').update({ temp_ac_bonus: 2 }).eq('id', current.id);
+    await commitTurn({
+      newLog: [...log, `${current.name} se pone en guardia · CA ${effectiveAC(current)} → ${effectiveAC(current) + 2} hasta su próximo turno`],
+    });
     setBusy(false);
+  };
+
+  const doAbility = async (target?: any) => {
+    if (busy || !current) return;
+    const ability = getAbility(classMap[current.character_id]);
+    setBusy(true);
+    setPickingTarget(null);
+
+    if (ability.kind === 'heal') {
+      const healed = roll(ability.healDice ?? 8) + 2;
+      const newHp = Math.min(current.hp_max, current.hp_current + healed);
+      await supabase
+        .from('combat_participants')
+        .update({ hp_current: newHp, ability_used: true })
+        .eq('id', current.id);
+      await commitTurn({
+        newLog: [...log, `${current.name} usa ${ability.name} · recupera ${healed} PV (${newHp}/${current.hp_max})`],
+      });
+      setBusy(false);
+      return;
+    }
+
+    if (ability.kind === 'buff') {
+      await supabase
+        .from('combat_participants')
+        .update({ temp_ac_bonus: ability.acBonus ?? 3, ability_used: true })
+        .eq('id', current.id);
+      await commitTurn({
+        newLog: [...log, `${current.name} usa ${ability.name} · +${ability.acBonus} CA hasta su próximo turno`],
+      });
+      setBusy(false);
+      return;
+    }
+
+    if (!target) {
+      setBusy(false);
+      return;
+    }
+    const result = resolveAttack(
+      (current.attack_bonus ?? 2) + (ability.bonusToHit ?? 0),
+      effectiveAC(target),
+      ability.damageDice ?? 10
+    );
+    setLastRoll({
+      ...result,
+      actorName: `${current.name} · ${ability.name}`,
+      targetName: target.name,
+    });
+    setPhase('showing_roll');
+
+    const newHp = result.hit ? Math.max(0, target.hp_current - result.damage) : target.hp_current;
+    const line = result.hit
+      ? `${current.name} usa ${ability.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · ${
+          result.critical ? 'CRÍTICO ' : ''
+        }${result.damage} de daño${newHp <= 0 ? ' · cae' : ''}`
+      : `${current.name} usa ${ability.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · falla`;
+
+    await supabase.from('combat_participants').update({ ability_used: true }).eq('id', current.id);
+
+    setTimeout(async () => {
+      await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: newHp });
+      setBusy(false);
+    }, 1600);
+  };
+
+  const doFlee = async () => {
+    if (busy || !current) return;
+    setBusy(true);
+    const check = skillCheck(abilityMod(current.dexterity), 12);
+    setLastRoll({
+      d20: check.d20,
+      bonus: check.bonus,
+      total: check.total,
+      targetAC: check.dc,
+      hit: check.success,
+      critical: false,
+      fumble: false,
+      damage: 0,
+      explanation: check.explanation,
+      actorName: `${current.name} intenta huir`,
+      targetName: '',
+    } as any);
+    setPhase('showing_roll');
+
+    const line = check.success
+      ? `${current.name} escapa del combate (${check.total} vs 12)`
+      : `${current.name} intenta huir y no lo logra (${check.total} vs 12)`;
+
+    if (check.success) {
+      await supabase.from('combat_participants').update({ has_fled: true, hp_current: 0 }).eq('id', current.id);
+    }
+
+    setTimeout(async () => {
+      await commitTurn({ newLog: [...log, line] });
+      setBusy(false);
+    }, 1600);
   };
 
   const runEnemyTurn = async () => {
@@ -144,16 +262,16 @@ export const CombatScreen = () => {
       return;
     }
 
-    const result = resolveAttack(3, target.armor_class, 6);
+    const result = resolveAttack(current.attack_bonus ?? 3, effectiveAC(target), current.damage_dice ?? 6);
     setLastRoll({ ...result, actorName: current.name, targetName: target.name });
     setPhase('showing_roll');
 
     const newHp = result.hit ? Math.max(0, target.hp_current - result.damage) : target.hp_current;
     const line = result.hit
-      ? `${current.name} → ${target.name}: ${result.total} vs CA ${target.armor_class} · ${
+      ? `${current.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · ${
           result.critical ? 'CRÍTICO ' : ''
         }${result.damage} de daño${newHp <= 0 ? ' · cae' : ''}`
-      : `${current.name} → ${target.name}: ${result.total} vs CA ${target.armor_class} · falla`;
+      : `${current.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · falla`;
 
     setTimeout(async () => {
       await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: newHp });
@@ -204,9 +322,7 @@ export const CombatScreen = () => {
           <div
             className={`dice-scene ${lastRoll.critical ? 'crit' : lastRoll.fumble ? 'fumble' : lastRoll.hit ? 'hit' : 'miss'}`}
           >
-            <p className="dice-who">
-              {lastRoll.actorName} ataca a {lastRoll.targetName}
-            </p>
+            <p className="dice-who">{lastRoll.actorName}</p>
             <div className="d20">
               <span className="d20-num">{lastRoll.d20}</span>
             </div>
@@ -250,50 +366,70 @@ export const CombatScreen = () => {
           </button>
         )}
 
-        {phase === 'showing_roll' && <button className="big-btn ghost" disabled>
-          Resolviendo...
-        </button>}
-
-        {phase === 'awaiting_player' && !pickingTarget && (
-          <>
-            <button
-              className="big-btn primary"
-              disabled={busy}
-              onClick={() =>
-                aliveEnemies.length === 1 ? doAttack(aliveEnemies[0]) : setPickingTarget(true)
-              }
-            >
-              Atacar
-            </button>
-            <button
-              className="big-btn"
-              disabled={busy}
-              onClick={() => doSimpleAction('se pone en guardia (+2 CA hasta su próximo turno)')}
-            >
-              Defenderse
-            </button>
-            <button
-              className="big-btn"
-              disabled={busy}
-              onClick={() => doSimpleAction('usa una habilidad o hechizo')}
-            >
-              Habilidad
-            </button>
-            <button className="big-btn" disabled={busy} onClick={() => doSimpleAction('intenta huir')}>
-              Huir
-            </button>
-          </>
+        {phase === 'showing_roll' && (
+          <button className="big-btn ghost" disabled>
+            Resolviendo...
+          </button>
         )}
+
+        {phase === 'awaiting_player' &&
+          !pickingTarget &&
+          (() => {
+            const ability = getAbility(classMap[current?.character_id]);
+            const abilitySpent = current?.ability_used;
+            return (
+              <>
+                <button
+                  className="big-btn primary"
+                  disabled={busy}
+                  onClick={() =>
+                    aliveEnemies.length === 1 ? doAttack(aliveEnemies[0]) : setPickingTarget('attack')
+                  }
+                >
+                  Atacar
+                  <small>d20 + {current?.attack_bonus ?? 2} · daño d{current?.damage_dice ?? 8}</small>
+                </button>
+
+                <button className="big-btn" disabled={busy} onClick={doDefend}>
+                  Defenderse
+                  <small>+2 CA hasta tu próximo turno</small>
+                </button>
+
+                <button
+                  className="big-btn"
+                  disabled={busy || abilitySpent}
+                  onClick={() => {
+                    if (ability.kind !== 'attack') return doAbility();
+                    return aliveEnemies.length === 1
+                      ? doAbility(aliveEnemies[0])
+                      : setPickingTarget('ability');
+                  }}
+                >
+                  {ability.name}
+                  <small>{abilitySpent ? 'Ya la usaste en este combate' : ability.description}</small>
+                </button>
+
+                <button className="big-btn" disabled={busy} onClick={doFlee}>
+                  Huir
+                  <small>Chequeo de DES contra dificultad 12</small>
+                </button>
+              </>
+            );
+          })()}
 
         {phase === 'awaiting_player' && pickingTarget && (
           <>
-            <p className="pick-label">¿A quién ataca?</p>
+            <p className="pick-label">¿A quién?</p>
             {aliveEnemies.map((e) => (
-              <button key={e.id} className="big-btn primary" onClick={() => doAttack(e)}>
-                {e.name} · {e.hp_current}/{e.hp_max} PV · CA {e.armor_class}
+              <button
+                key={e.id}
+                className="big-btn primary"
+                onClick={() => (pickingTarget === 'attack' ? doAttack(e) : doAbility(e))}
+              >
+                {e.name} · {e.hp_current}/{e.hp_max} PV · CA {effectiveAC(e)}
               </button>
             ))}
-            <button className="big-btn ghost" onClick={() => setPickingTarget(false)}>
+            <button className="big-btn ghost" onClick={() => setPickingTarget(null)}>
               Cancelar
             </button>
           </>
@@ -315,7 +451,10 @@ export const CombatScreen = () => {
               <div className="roster-bar">
                 <div className="roster-fill" style={{ width: `${pct}%` }} />
               </div>
-              <span className="roster-hp">{p.hp_current <= 0 ? 'caído' : `${p.hp_current}/${p.hp_max}`}</span>
+              <span className="roster-hp">
+                {p.has_fled ? 'huyó' : p.hp_current <= 0 ? 'caído' : `${p.hp_current}/${p.hp_max}`}
+                {p.temp_ac_bonus > 0 && <em className="ac-buff"> · CA {effectiveAC(p)}</em>}
+              </span>
             </div>
           );
         })}

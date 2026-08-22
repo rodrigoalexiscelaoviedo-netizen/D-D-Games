@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { rollInitiative } from '../../lib/combat-engine';
+import { rollInitiative, abilityMod } from '../../lib/combat-engine';
 
 export const CombatSetup = () => {
   const { campaignId } = useParams();
@@ -71,6 +71,11 @@ export const CombatSetup = () => {
             dexterity: c?.dex ?? 10,
             initiative_roll: init.total,
             status: 'ready',
+            damage_dice: 8,
+            attack_bonus: abilityMod(c?.str ?? 10) + (c?.proficiency_bonus ?? 2),
+            temp_ac_bonus: 0,
+            has_fled: false,
+            ability_used: false,
           };
         }),
         ...lineup.map((e) => {
@@ -86,6 +91,11 @@ export const CombatSetup = () => {
             dexterity: e.dexterity ?? 10,
             initiative_roll: init.total,
             status: 'ready',
+            damage_dice: e.damage_dice ?? 6,
+            attack_bonus: e.attack_bonus ?? 3,
+            temp_ac_bonus: 0,
+            has_fled: false,
+            ability_used: false,
           };
         }),
       ];

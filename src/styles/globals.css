@@ -920,6 +920,16 @@ textarea.input-field {
   .lore-list { grid-template-columns: 1fr; }
 }
 
+.big-btn small {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 400;
+  opacity: 0.75;
+  letter-spacing: 0;
+}
+.big-btn.primary small { color: #3a2d18; }
+.ac-buff { color: var(--gold); font-style: normal; font-size: 0.72rem; }
+
 @media (max-width: 640px) {
   .avatar-grid { grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); }
   .list-header {
