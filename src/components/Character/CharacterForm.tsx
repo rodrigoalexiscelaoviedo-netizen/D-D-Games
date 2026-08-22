@@ -76,42 +76,47 @@ export const CharacterForm = () => {
       const { data: campData } = await supabase
         .from('campaigns').select('system').eq('id', campaignId).single();
 
-      const payload = {
+      const payload: Record<string, any> = {
         campaign_id: campaignId,
         character_name: d.character_name.trim(),
-        player_name: d.player_name,
         player_user_id: whoPlays === 'me' ? userData.user?.id : null,
         system: campData?.system || 'dnd5e',
-        appearance: d.appearance,
-        race: d.race,
-        character_class: d.character_class,
-        subclass: d.subclass,
-        background: d.background,
-        str: d.str, dex: d.dex, con: d.con, int: d.int, wis: d.wis, cha: d.cha,
-        proficiency_bonus: d.proficiency_bonus,
-        armor_class: d.armor_class,
-        initiative_bonus: d.initiative_bonus,
-        speed: d.speed,
-        level: d.level,
-        xp: d.xp,
-        hp_current: d.hp_current,
-        hp_max: d.hp_max,
-        spell_slots: d.spell_slots,
-        skill_proficiencies: d.skill_proficiencies,
-        resistances: d.resistances,
-        immunities: d.immunities,
-        vulnerabilities: d.vulnerabilities,
-        languages: d.languages,
-        tools_proficiency: d.tools_proficiency,
-        senses: d.senses,
-        personality_traits: d.personality_traits,
-        inventory: d.inventory,
-        spells: d.spells,
-        conditions: d.conditions,
-        inspiration: d.inspiration,
-        notes: d.notes,
-        milestone: d.milestone,
       };
+      if (d.player_name) payload.player_name = d.player_name;
+      if (d.appearance) payload.appearance = d.appearance;
+      if (d.race) payload.race = d.race;
+      if (d.character_class) payload.character_class = d.character_class;
+      if (d.subclass) payload.subclass = d.subclass;
+      if (d.background) payload.background = d.background;
+      if (d.str != null) payload.str = d.str;
+      if (d.dex != null) payload.dex = d.dex;
+      if (d.con != null) payload.con = d.con;
+      if (d.int != null) payload.int = d.int;
+      if (d.wis != null) payload.wis = d.wis;
+      if (d.cha != null) payload.cha = d.cha;
+      if (d.proficiency_bonus != null) payload.proficiency_bonus = d.proficiency_bonus;
+      if (d.armor_class != null) payload.armor_class = d.armor_class;
+      if (d.initiative_bonus != null) payload.initiative_bonus = d.initiative_bonus;
+      if (d.speed != null) payload.speed = d.speed;
+      if (d.level != null) payload.level = d.level;
+      if (d.xp != null) payload.xp = d.xp;
+      if (d.hp_current != null) payload.hp_current = d.hp_current;
+      if (d.hp_max != null) payload.hp_max = d.hp_max;
+      if (d.spell_slots) payload.spell_slots = d.spell_slots;
+      if (d.skill_proficiencies?.length) payload.skill_proficiencies = d.skill_proficiencies;
+      if (d.resistances?.length) payload.resistances = d.resistances;
+      if (d.immunities?.length) payload.immunities = d.immunities;
+      if (d.vulnerabilities?.length) payload.vulnerabilities = d.vulnerabilities;
+      if (d.languages?.length) payload.languages = d.languages;
+      if (d.tools_proficiency?.length) payload.tools_proficiency = d.tools_proficiency;
+      if (d.senses?.length) payload.senses = d.senses;
+      if (d.personality_traits) payload.personality_traits = d.personality_traits;
+      if (d.inventory?.length) payload.inventory = d.inventory;
+      if (d.spells?.length) payload.spells = d.spells;
+      if (d.conditions?.length) payload.conditions = d.conditions;
+      if (d.inspiration != null) payload.inspiration = d.inspiration;
+      if (d.notes) payload.notes = d.notes;
+      if (d.milestone) payload.milestone = d.milestone;
 
       let resErr;
       if (isEdit) {
