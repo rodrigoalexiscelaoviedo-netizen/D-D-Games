@@ -5,6 +5,8 @@ import { Dashboard } from './pages/Dashboard';
 import { ProtectedRoute } from './components/Auth/ProtectedRoute';
 import { CampaignWizard } from './components/Campaign/CampaignWizard';
 import { CampaignHome } from './components/Campaign/CampaignHome';
+import { CharacterForm } from './components/Character/CharacterForm';
+import { CharacterList } from './components/Character/CharacterList';
 
 export default function App() {
   return (
@@ -33,6 +35,30 @@ export default function App() {
           element={
             <ProtectedRoute>
               <CampaignHome />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/campaign/:campaignId/characters"
+          element={
+            <ProtectedRoute>
+              <CharacterList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/campaign/:campaignId/characters/new"
+          element={
+            <ProtectedRoute>
+              <CharacterForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/campaign/:campaignId/characters/:characterId/edit"
+          element={
+            <ProtectedRoute>
+              <CharacterForm />
             </ProtectedRoute>
           }
         />
