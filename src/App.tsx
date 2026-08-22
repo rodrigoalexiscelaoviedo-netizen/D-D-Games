@@ -9,6 +9,7 @@ import { CharacterForm } from './components/Character/CharacterForm';
 import { CharacterList } from './components/Character/CharacterList';
 import { CombatSetup } from './components/Combat/CombatSetup';
 import { CombatTurn } from './components/Combat/CombatTurn';
+import { CampaignWiki } from './components/Campaign/CampaignWiki';
 
 export default function App() {
   return (
@@ -77,6 +78,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <CombatTurn />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/campaign/:campaignId/wiki"
+          element={
+            <ProtectedRoute>
+              <CampaignWiki />
             </ProtectedRoute>
           }
         />

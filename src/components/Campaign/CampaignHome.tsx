@@ -50,6 +50,12 @@ export const CampaignHome = () => {
           >
             ⚔️ Iniciar Combate
           </button>
+          <button
+            onClick={() => navigate(`/campaign/${campaignId}/wiki`)}
+            className="btn-secondary"
+          >
+            📖 Wiki
+          </button>
           <button onClick={handleDelete} className="btn-danger">
             Borrar
           </button>

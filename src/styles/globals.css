@@ -27,7 +27,7 @@ h1, h2, h3 {
   font-weight: 600;
 }
 
-/* --- BOTONES --- */
+/* ===== BOTONES ===== */
 .btn-primary {
   font-family: var(--font-title);
   background: linear-gradient(180deg, var(--gold) 0%, #a8842f 100%);
@@ -42,16 +42,11 @@ h1, h2, h3 {
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
-
 .btn-primary:hover:not(:disabled) {
   background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
   transform: translateY(-1px);
 }
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-secondary {
   font-family: var(--font-title);
@@ -64,18 +59,14 @@ h1, h2, h3 {
   cursor: pointer;
   transition: all 0.2s ease;
 }
+.btn-secondary:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
+.btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.btn-secondary:hover:not(:disabled) {
-  border-color: var(--gold);
-  color: var(--gold);
-}
+.btn-danger { background: var(--wine); color: var(--ink); border: 1px solid var(--wine-bright); padding: 0.5rem 1rem; border-radius: var(--radius); cursor: pointer; font-family: var(--font-title); }
+.btn-danger-outline { background: transparent; color: var(--wine-bright); border: 1px solid var(--wine); padding: 0.5rem 1rem; border-radius: var(--radius); cursor: pointer; font-family: var(--font-body); }
+.btn-danger-outline:hover { background: var(--wine); color: var(--ink); }
 
-.btn-secondary:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* --- INPUTS --- */
+/* ===== INPUTS ===== */
 .input-field {
   width: 100%;
   padding: 0.75rem;
@@ -87,18 +78,14 @@ h1, h2, h3 {
   font-family: var(--font-body);
   font-size: 1rem;
 }
-
-.input-field::placeholder {
-  color: var(--ink-muted);
-}
-
+.input-field::placeholder { color: var(--ink-muted); }
 .input-field:focus {
   outline: none;
   border-color: var(--gold);
   box-shadow: 0 0 0 3px rgba(201,162,75,0.15);
 }
 
-/* --- LOGIN / AUTH --- */
+/* ===== LOGIN / AUTH ===== */
 .login-container {
   display: flex;
   align-items: center;
@@ -153,7 +140,7 @@ h1, h2, h3 {
   color: var(--ink-muted);
 }
 
-/* --- DASHBOARD --- */
+/* ===== DASHBOARD ===== */
 .dashboard-header {
   display: flex;
   justify-content: space-between;
@@ -241,7 +228,7 @@ h1, h2, h3 {
   margin-top: 1rem;
 }
 
-/* --- WIZARD --- */
+/* ===== WIZARD ===== */
 .wizard-container {
   display: flex;
   gap: 2rem;
@@ -312,7 +299,7 @@ h1, h2, h3 {
   margin-bottom: 2rem;
 }
 
-/* --- GUIDEBOOK (zona de lectura clara) --- */
+/* ===== GUIDEBOOK ===== */
 .guidebook {
   width: 300px;
   padding: 1.5rem;
@@ -367,7 +354,7 @@ h1, h2, h3 {
   border: 1px solid rgba(124,45,58,0.2);
 }
 
-/* --- CAMPAIGN HOME --- */
+/* ===== CAMPAIGN HOME ===== */
 .campaign-home {
   max-width: 800px;
   margin: 2rem auto;
@@ -415,7 +402,7 @@ h1, h2, h3 {
   color: var(--ink-muted);
 }
 
-/* --- CHARACTER FORM --- */
+/* ===== CHARACTER FORM ===== */
 .grid-2 {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -512,7 +499,7 @@ textarea.input-field {
   font-weight: 600;
 }
 
-/* --- CHARACTER LIST --- */
+/* ===== CHARACTER LIST ===== */
 .character-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -596,28 +583,7 @@ textarea.input-field {
   font-size: 0.875rem;
 }
 
-.btn-danger {
-  background: var(--wine);
-  color: var(--bg-parchment);
-  border: 1px solid var(--wine-bright);
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-danger:hover:not(:disabled) {
-  background: var(--wine-bright);
-  box-shadow: 0 2px 8px rgba(124,45,58,0.3);
-}
-
-.btn-danger:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* --- AVATARS --- */
+/* ===== AVATARS ===== */
 .avatar-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
@@ -657,7 +623,7 @@ textarea.input-field {
   line-height: 1.2;
 }
 
-/* --- BONUS INFO --- */
+/* ===== BONUS INFO ===== */
 .bonus-info {
   background: rgba(201, 162, 75, 0.1);
   border-left: 3px solid var(--gold);
@@ -668,17 +634,7 @@ textarea.input-field {
   margin-top: 0.75rem;
 }
 
-/* --- TOOLTIPS --- */
-.tooltip {
-  cursor: help;
-  border-bottom: 1px dotted var(--gold);
-  position: relative;
-}
-.tooltip:hover {
-  color: var(--gold);
-}
-
-/* --- CHARACTER CARDS CON VISUAL --- */
+/* ===== CHARACTER CARDS WITH VISUAL ===== */
 .char-card-visual {
   height: 140px;
   overflow: hidden;
@@ -758,22 +714,247 @@ textarea.input-field {
   font-size: 0.85rem;
   padding: 0.5rem;
 }
-.btn-danger-outline {
-  background: transparent;
-  color: var(--wine);
-  border: 1px solid var(--wine);
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.btn-danger-outline:hover {
-  background: var(--wine);
-  color: var(--bg-parchment);
+
+/* ===== COMBAT CONTAINER ===== */
+.combat-container {
+  min-height: 100vh;
+  padding-bottom: 2rem;
+  transition: background 0.5s ease;
 }
 
-/* --- COMBAT --- */
+.combat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  background: rgba(26, 20, 16, 0.8);
+  border-bottom: 2px solid var(--gold);
+  backdrop-filter: blur(10px);
+}
+.combat-header h1 { font-size: 2rem; }
+.header-info { flex: 1; }
+.header-actions { display: flex; gap: 1rem; align-items: center; }
+
+.theme-selector {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-gold);
+  color: var(--ink);
+  padding: 0.5rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.combat-state {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.state-column h3 { color: var(--gold); margin-bottom: 1rem; }
+
+.participant-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius);
+  padding: 1rem;
+  transition: all 0.2s;
+}
+.participant-card.active { border-color: var(--gold); background: rgba(201,162,75,0.1); }
+.participant-card.enemy { border-color: var(--wine); }
+
+.participant-name { display: block; font-weight: 600; margin-bottom: 0.5rem; }
+.hp-bar {
+  width: 100%;
+  height: 24px;
+  background: var(--bg-surface-2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0.5rem 0;
+  border: 1px solid var(--border-soft);
+}
+.hp-fill { height: 100%; transition: width 0.3s; }
+.hp-text { font-size: 0.85rem; color: var(--ink-muted); }
+
+/* ===== COMBAT ACTIONS ===== */
+.combat-actions {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  max-width: 900px;
+  margin: 2rem auto;
+  margin-bottom: 2rem;
+}
+.combat-actions h3 { color: var(--gold); margin-bottom: 0.5rem; }
+
+.combat-tip {
+  background: rgba(201, 162, 75, 0.1);
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+  color: var(--ink);
+  font-size: 0.9rem;
+  border-left: 3px solid var(--gold);
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 0.75rem;
+}
+
+.action-btn {
+  background: var(--bg-surface-2);
+  border: 2px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--ink);
+}
+.action-btn:hover {
+  border-color: var(--gold);
+  transform: scale(1.05);
+}
+.action-btn.selected {
+  border-color: var(--gold);
+  background: rgba(201, 162, 75, 0.15);
+}
+
+.action-icon { font-size: 1.8rem; }
+.action-label { font-size: 0.8rem; font-weight: 600; }
+
+/* ===== COMBAT LOG ===== */
+.combat-log {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 1rem;
+  max-width: 900px;
+  margin: 2rem auto;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.log-entries { display: flex; flex-direction: column; gap: 0.25rem; }
+.log-entry {
+  font-size: 0.8rem;
+  color: var(--ink);
+  padding: 0.25rem;
+  border-left: 2px solid var(--gold);
+  padding-left: 0.5rem;
+}
+
+/* ===== LOOT MODAL ===== */
+.loot-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-surface);
+  border: 2px solid var(--gold);
+  border-radius: var(--radius);
+  padding: 2rem;
+  z-index: 1000;
+  max-width: 500px;
+  text-align: center;
+}
+
+.loot-items { display: flex; flex-direction: column; gap: 0.5rem; margin: 1rem 0; }
+
+.loot-item {
+  background: var(--bg-surface-2);
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  border-left: 4px solid var(--gold);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.rarity { font-size: 0.7rem; color: var(--ink-muted); }
+.qty { font-weight: 600; }
+
+/* ===== VICTORY SCREEN ===== */
+.combat-result {
+  text-align: center;
+  max-width: 600px;
+  margin: 3rem auto;
+  padding: 2rem;
+  border-radius: var(--radius);
+}
+.combat-result.victory {
+  background: rgba(34, 197, 94, 0.1);
+  border: 2px solid #22c55e;
+}
+.combat-result.victory h2 { color: #22c55e; }
+
+/* ===== WIKI ===== */
+.wiki-container { max-width: 900px; margin: 0 auto; padding: 1rem; }
+.wiki-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+
+.wiki-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-gold); }
+.tab {
+  background: transparent;
+  border: none;
+  color: var(--ink-muted);
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  font-family: var(--font-title);
+}
+.tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.tab:hover { color: var(--gold); }
+
+.wiki-content { padding: 1rem 0; }
+
+.add-form { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
+
+.lore-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem; }
+.lore-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.lore-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(201,162,75,0.2); }
+.lore-card h3 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+.lore-card p { color: var(--ink-muted); font-size: 0.9rem; }
+.lore-type { font-size: 0.7rem; color: var(--gold); margin-top: 0.5rem; display: inline-block; }
+
+.inventory-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.inventory-item {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-gold);
+  padding: 1rem;
+  border-radius: var(--radius);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.item-name { flex: 1; }
+.item-qty { margin: 0 1rem; font-weight: 600; }
+.item-rarity { font-size: 0.8rem; padding: 0.25rem 0.5rem; background: var(--bg-surface-2); border-radius: 2px; }
+
+.notes-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.note-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+.note-card h3 { margin-bottom: 0.5rem; }
+.note-card p { color: var(--ink-muted); }
+
+/* ===== COMBAT SETUP ===== */
 .combat-setup { max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
 .setup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
 .setup-section { background: var(--bg-surface); border: 1px solid var(--border-gold); border-radius: var(--radius); padding: 1.5rem; }
@@ -786,36 +967,7 @@ textarea.input-field {
 .enemy-item { display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface-2); padding: 0.75rem; border-radius: var(--radius); }
 .setup-buttons { display: flex; gap: 1rem; margin-top: 1.5rem; }
 
-.combat-view { max-width: 900px; margin: 0 auto; padding: 0 1rem; }
-.combat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-.combat-header h1 { color: var(--gold); }
-
-.combat-state { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
-.state-column h3 { color: var(--gold); margin-bottom: 1rem; }
-.participant-card { background: var(--bg-surface); border: 1px solid var(--border-gold); border-radius: var(--radius); padding: 1rem; }
-.participant-card.enemy { border-color: var(--wine); }
-.hp-bar { width: 100%; height: 20px; background: var(--bg-surface-2); border-radius: 4px; overflow: hidden; margin: 0.5rem 0; }
-.hp-fill { height: 100%; transition: width 0.3s; }
-.hp-text { font-size: 0.85rem; color: var(--ink-muted); }
-
-.combat-actions { background: var(--bg-surface); border: 1px solid var(--border-gold); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 2rem; }
-.combat-actions h3 { color: var(--gold); margin-bottom: 0.5rem; }
-.combat-tip { background: rgba(201, 162, 75, 0.1); padding: 0.75rem; border-radius: var(--radius); margin-bottom: 1rem; color: var(--ink); font-size: 0.9rem; }
-.action-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem; }
-.action-btn { background: var(--bg-surface-2); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 1rem; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
-.action-btn:hover { border-color: var(--gold); transform: scale(1.05); }
-.action-emoji { font-size: 1.5rem; }
-.action-label { font-weight: 600; color: var(--gold); font-size: 0.85rem; }
-.action-desc { font-size: 0.7rem; color: var(--ink-muted); text-align: center; }
-
-.combat-log { background: var(--bg-surface); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 1rem; max-height: 200px; overflow-y: auto; }
-.log-entries { display: flex; flex-direction: column; gap: 0.25rem; }
-.log-entry { font-size: 0.8rem; color: var(--ink); padding: 0.25rem; border-left: 2px solid var(--gold); padding-left: 0.5rem; }
-
-.combat-result { text-align: center; background: rgba(34, 197, 94, 0.1); border: 1px solid #22c55e; border-radius: var(--radius); padding: 2rem; }
-.combat-result h2 { color: #22c55e; }
-
-/* --- RESPONSIVE --- */
+/* ===== RESPONSIVE ===== */
 @media (max-width: 1024px) {
   .wizard-container {
     flex-direction: column;
@@ -824,6 +976,14 @@ textarea.input-field {
   .guidebook {
     width: 100%;
   }
+}
+
+@media (max-width: 768px) {
+  .combat-state { grid-template-columns: 1fr; }
+  .action-grid { grid-template-columns: repeat(2, 1fr); }
+  .combat-header { flex-direction: column; gap: 1rem; }
+  .wiki-tabs { flex-wrap: wrap; }
+  .lore-list { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {
