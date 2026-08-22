@@ -76,12 +76,42 @@ export const CharacterForm = () => {
       const { data: campData } = await supabase
         .from('campaigns').select('system').eq('id', campaignId).single();
 
-      const payload: any = {
-        ...d, campaign_id: campaignId, character_name: d.character_name.trim(),
+      const payload = {
+        campaign_id: campaignId,
+        character_name: d.character_name.trim(),
+        player_name: d.player_name,
         player_user_id: whoPlays === 'me' ? userData.user?.id : null,
         system: campData?.system || 'dnd5e',
+        appearance: d.appearance,
+        race: d.race,
+        character_class: d.character_class,
+        subclass: d.subclass,
+        background: d.background,
+        str: d.str, dex: d.dex, con: d.con, int: d.int, wis: d.wis, cha: d.cha,
+        proficiency_bonus: d.proficiency_bonus,
+        armor_class: d.armor_class,
+        initiative_bonus: d.initiative_bonus,
+        speed: d.speed,
+        level: d.level,
+        xp: d.xp,
+        hp_current: d.hp_current,
+        hp_max: d.hp_max,
+        spell_slots: d.spell_slots,
+        skill_proficiencies: d.skill_proficiencies,
+        resistances: d.resistances,
+        immunities: d.immunities,
+        vulnerabilities: d.vulnerabilities,
+        languages: d.languages,
+        tools_proficiency: d.tools_proficiency,
+        senses: d.senses,
+        personality_traits: d.personality_traits,
+        inventory: d.inventory,
+        spells: d.spells,
+        conditions: d.conditions,
+        inspiration: d.inspiration,
+        notes: d.notes,
+        milestone: d.milestone,
       };
-      delete payload.id; delete payload.created_at; delete payload.updated_at;
 
       let resErr;
       if (isEdit) {
