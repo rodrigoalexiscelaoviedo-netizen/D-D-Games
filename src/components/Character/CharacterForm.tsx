@@ -64,6 +64,7 @@ export const CharacterForm = () => {
   };
 
   const handleSave = async () => {
+    console.log('handleSave called, character_name:', d.character_name);
     setError('');
     if (!d.character_name?.trim()) {
       setError('El personaje necesita al menos un nombre');
@@ -71,6 +72,7 @@ export const CharacterForm = () => {
       return;
     }
     setSaving(true);
+    console.log('About to insert character:', d.character_name);
     try {
       const { data: userData } = await supabase.auth.getUser();
 
