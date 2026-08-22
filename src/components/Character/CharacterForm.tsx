@@ -4,7 +4,8 @@ import { supabase } from '../../lib/supabase';
 import { Guidebook } from '../Layout/Guidebook';
 import { Step } from '../Shared/Step';
 import { fmtMod, applyRacialBonuses, getRacialBonuses } from '../../lib/dnd';
-import { ARCHETYPES, CLASS_STAT_ARRAYS, SKILLS_5E } from '../../lib/d5e-data';
+import { CLASS_STAT_ARRAYS, SKILLS_5E } from '../../lib/d5e-data';
+import { AVATAR_STYLES, getAvatarUrl } from '../../lib/avatar-styles';
 import type { Character } from '../../lib/types';
 
 const EMPTY: Partial<Character> = {
@@ -150,7 +151,6 @@ export const CharacterForm = () => {
     <span title={text} className="tooltip">{children}</span>
   );
 
-  const selectedArchetype = ARCHETYPES.find(a => a.id === d.appearance);
 
   return (
     <div className="wizard-container">
@@ -175,23 +175,23 @@ export const CharacterForm = () => {
             )}
 
             <label className="field-label">¿Cómo querés que se vea?</label>
-            <div className="archetype-grid">
-              {ARCHETYPES.map((a) => (
-                <button key={a.id} type="button"
-                  className={`archetype-btn ${d.appearance === a.id ? 'archetype-selected' : ''}`}
-                  style={{
-                    borderColor: d.appearance === a.id ? a.primaryColor : 'transparent',
-                    backgroundColor: d.appearance === a.id ? `${a.primaryColor}20` : 'transparent',
-                  }}
-                  onClick={() => set({ appearance: a.id })}>
-                  <span className="archetype-emoji">{a.emoji}</span>
-                  <span className="archetype-label">{a.name}</span>
+            <div className="avatar-grid">
+              {AVATAR_STYLES.map((style) => (
+                <button
+                  key={style.id}
+                  type="button"
+                  className={`avatar-btn ${d.appearance === style.id ? 'avatar-selected' : ''}`}
+                  onClick={() => set({ appearance: style.id })}
+                >
+                  <img
+                    src={getAvatarUrl(style.seed)}
+                    alt={style.name}
+                    className="avatar-img"
+                  />
+                  <span className="avatar-label">{style.name}</span>
                 </button>
               ))}
             </div>
-            {selectedArchetype && (
-              <p className="archetype-desc">✓ {selectedArchetype.description}</p>
-            )}
 
             <div className="grid-2">
               <label className="field-label">
@@ -303,19 +303,17 @@ export const CharacterForm = () => {
           <Step title="Paso 4: Revisar y guardar">
             <div className="summary">
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                {selectedArchetype && (
-                  <div style={{
-                    width: '60px',
-                    height: '60px',
-                    borderRadius: '8px',
-                    background: `linear-gradient(135deg, ${selectedArchetype.primaryColor} 0%, ${selectedArchetype.secondaryColor} 100%)`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '32px',
-                  }}>
-                    {selectedArchetype.emoji}
-                  </div>
+                {d.appearance && (
+                  <img
+                    src={getAvatarUrl(AVATAR_STYLES.find(s => s.id === d.appearance)?.seed || 'default')}
+                    alt="Tu personaje"
+                    style={{
+                      width: '80px',
+                      height: '80px',
+                      borderRadius: '8px',
+                      border: '2px solid var(--gold)',
+                    }}
+                  />
                 )}
                 <div style={{ flex: 1 }}>
                   <p style={{ margin: 0, fontSize: '1.25rem' }}><strong>{d.character_name || '(sin nombre)'}</strong></p>

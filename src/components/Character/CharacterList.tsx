@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { fmtMod } from '../../lib/dnd';
-import { ARCHETYPES } from '../../lib/d5e-data';
+import { AVATAR_STYLES, getAvatarUrl } from '../../lib/avatar-styles';
 
 export const CharacterList = () => {
   const { campaignId } = useParams();
@@ -32,9 +32,10 @@ export const CharacterList = () => {
     setChars(chars.filter(c => c.id !== id));
   };
 
-  const getArchetype = (appearanceId?: string) => {
+  const getAvatarForAppearance = (appearanceId?: string): string | null => {
     if (!appearanceId) return null;
-    return ARCHETYPES.find(a => a.id === appearanceId);
+    const style = AVATAR_STYLES.find(s => s.id === appearanceId);
+    return style ? getAvatarUrl(style.seed) : null;
   };
 
   if (loading) return <div className="page-pad">Cargando personajes...</div>;
@@ -58,14 +59,16 @@ export const CharacterList = () => {
       ) : (
         <div className="char-grid">
           {chars.map((c) => {
-            const archetype = getArchetype(c.appearance);
+            const avatarUrl = getAvatarForAppearance(c.appearance);
             return (
               <div key={c.id} className="char-card">
-                {archetype && (
-                  <div className="char-card-visual" style={{
-                    background: `linear-gradient(135deg, ${archetype.primaryColor} 0%, ${archetype.secondaryColor} 100%)`,
-                  }}>
-                    <span className="char-emoji">{archetype.emoji}</span>
+                {avatarUrl && (
+                  <div className="char-card-visual">
+                    <img
+                      src={avatarUrl}
+                      alt={c.character_name}
+                      className="char-avatar-img"
+                    />
                   </div>
                 )}
                 <div className="char-card-main" onClick={() => navigate(`/campaign/${campaignId}/characters/${c.id}/edit`)}>
