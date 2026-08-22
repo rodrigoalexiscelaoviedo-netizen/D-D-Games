@@ -149,7 +149,7 @@ export const CombatTurn = () => {
                 className="action-btn"
                 onClick={() => {
                   const target = enemies.find((e) => e.hp_current > 0);
-                  if (target) roll(action.id, target);
+                  if (target) roll(target);
                 }}
               >
                 <span className="action-emoji">{action.label.split(' ')[0]}</span>
