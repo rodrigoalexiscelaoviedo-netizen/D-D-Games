@@ -3,27 +3,28 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-console.log('supabaseUrl:', supabaseUrl);
-console.log('supabaseAnonKey:', supabaseAnonKey ? 'SET' : 'UNDEFINED');
+console.log('Initializing Supabase:', {
+  url: supabaseUrl,
+  keyExists: !!supabaseAnonKey
+});
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(`Missing Supabase env vars:
-    - VITE_SUPABASE_URL: ${supabaseUrl ? 'SET' : 'UNDEFINED'}
-    - VITE_SUPABASE_ANON_KEY: ${supabaseAnonKey ? 'SET' : 'UNDEFINED'}
-  `);
+  throw new Error('Missing Supabase env vars');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-  },
-  db: {
-    schema: 'public',
+    detectSessionInUrl: true,
   },
   global: {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
+    fetch: (url, options) => {
+      return fetch(url, {
+        ...options,
+        mode: 'cors',
+        credentials: 'include',
+      });
     },
   },
 });
