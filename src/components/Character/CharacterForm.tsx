@@ -73,13 +73,10 @@ export const CharacterForm = () => {
     setSaving(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
-      const { data: campData } = await supabase
-        .from('campaigns').select('system').eq('id', campaignId).single();
 
       const payload: Record<string, any> = {
         campaign_id: campaignId,
         character_name: d.character_name.trim(),
-        system: campData?.system || 'dnd5e',
       };
       if (whoPlays === 'me' && userData.user?.id) {
         payload.player_user_id = userData.user.id;
