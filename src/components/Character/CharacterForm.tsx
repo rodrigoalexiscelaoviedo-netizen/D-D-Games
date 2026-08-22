@@ -79,9 +79,11 @@ export const CharacterForm = () => {
       const payload: Record<string, any> = {
         campaign_id: campaignId,
         character_name: d.character_name.trim(),
-        player_user_id: whoPlays === 'me' ? userData.user?.id : null,
         system: campData?.system || 'dnd5e',
       };
+      if (whoPlays === 'me' && userData.user?.id) {
+        payload.player_user_id = userData.user.id;
+      }
       if (d.player_name) payload.player_name = d.player_name;
       if (d.appearance) payload.appearance = d.appearance;
       if (d.race) payload.race = d.race;
