@@ -164,32 +164,30 @@ export const CombatTurn = () => {
   };
 
   const nextTurn = async () => {
-    console.log('nextTurn() - current participants:', participants);
+    setParticipants((currentParticipants) => {
+      const currentIdx = currentParticipants.findIndex((p) => p.id === currentParticipant?.id);
+      const nextIdx = (currentIdx + 1) % currentParticipants.length;
+      const nextParticipant = currentParticipants[nextIdx];
 
-    const currentIndex = participants.findIndex((p) => p.id === currentParticipant?.id);
-    console.log('Current index:', currentIndex);
+      console.log('nextTurn: currentIdx=', currentIdx, 'nextIdx=', nextIdx, 'next=', nextParticipant?.name);
 
-    const nextIndex = (currentIndex + 1) % participants.length;
-    const next = participants[nextIndex];
+      if (nextIdx === 0) {
+        setRound((r) => r + 1);
+      }
 
-    console.log('Next participant:', next);
+      setCurrentParticipant(nextParticipant);
+      setSelectedAction(null);
 
-    if (nextIndex === 0) {
-      setRound((r) => r + 1);
-    }
+      if (nextParticipant && !nextParticipant.is_player) {
+        console.log('Next is ENEMY, scheduling attack');
+        setTimeout(() => {
+          console.log('ENEMY TURN FIRING NOW');
+          enemyTurn();
+        }, 2000);
+      }
 
-    setCurrentParticipant(next);
-    setSelectedAction(null);
-
-    if (next && !next.is_player) {
-      console.log('Next is enemy, scheduling enemy turn in 2 sec');
-      setTimeout(() => {
-        console.log('Timeout fired, calling enemyTurn');
-        enemyTurn();
-      }, 2000);
-    } else {
-      console.log('Next is player, waiting for action');
-    }
+      return currentParticipants;
+    });
   };
 
   const endCombat = async () => {
