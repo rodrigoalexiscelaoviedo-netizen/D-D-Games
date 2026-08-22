@@ -4,17 +4,13 @@ export interface Character {
   character_name: string;
   player_name?: string;
   player_user_id?: string | null;
-  portrait_url?: string;
+  appearance?: string;
   race?: string;
   character_class?: string;
   subclass?: string;
   background?: string;
-  str?: number;
-  dex?: number;
-  con?: number;
-  int?: number;
-  wis?: number;
-  cha?: number;
+  str?: number; dex?: number; con?: number;
+  int?: number; wis?: number; cha?: number;
   proficiency_bonus?: number;
   armor_class?: number;
   initiative_bonus?: number;
@@ -38,6 +34,7 @@ export interface Character {
   inspiration?: boolean;
   notes?: string;
   milestone?: string;
+  system?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -52,4 +49,36 @@ export interface SpellEntry {
   name: string;
   level?: number;
   prepared?: boolean;
+}
+
+export interface Archetype {
+  id: string;
+  name: string;
+  emoji: string;
+  primaryColor: string;
+  secondaryColor: string;
+  description: string;
+  raceSuggestion?: string;
+  classSuggestion?: string;
+}
+
+export interface ClassStatArray {
+  class: string;
+  str: number;
+  dex: number;
+  con: number;
+  int: number;
+  wis: number;
+  cha: number;
+}
+
+export interface RacialBonus {
+  race: string;
+  str?: number;
+  dex?: number;
+  con?: number;
+  int?: number;
+  wis?: number;
+  cha?: number;
+  description: string;
 }

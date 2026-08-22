@@ -3,38 +3,17 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Guidebook } from '../Layout/Guidebook';
 import { Step } from '../Shared/Step';
-import { fmtMod, SKILLS_5E } from '../../lib/dnd';
+import { fmtMod, applyRacialBonuses, getRacialBonuses } from '../../lib/dnd';
+import { ARCHETYPES, CLASS_STAT_ARRAYS, SKILLS_5E } from '../../lib/d5e-data';
 import type { Character } from '../../lib/types';
 
 const EMPTY: Partial<Character> = {
-  character_name: '',
-  player_name: '',
-  race: '',
-  character_class: '',
-  subclass: '',
-  background: '',
-  str: 10,
-  dex: 10,
-  con: 10,
-  int: 10,
-  wis: 10,
-  cha: 10,
-  level: 1,
-  xp: 0,
-  armor_class: 10,
-  hp_current: 10,
-  hp_max: 10,
-  speed: 30,
-  initiative_bonus: 0,
-  proficiency_bonus: 2,
-  inspiration: false,
-  skill_proficiencies: [],
-  conditions: [],
-  inventory: [],
-  spells: [],
-  spell_slots: {},
-  languages: [],
-  notes: '',
+  character_name: '', player_name: '', appearance: 'human-warrior', race: '', character_class: '', subclass: '',
+  background: '', str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10,
+  level: 1, xp: 0, armor_class: 10, hp_current: 10, hp_max: 10, speed: 30,
+  initiative_bonus: 0, proficiency_bonus: 2, inspiration: false,
+  skill_proficiencies: [], conditions: [], inventory: [], spells: [],
+  spell_slots: {}, languages: [], notes: '',
 };
 
 export const CharacterForm = () => {
@@ -51,28 +30,37 @@ export const CharacterForm = () => {
   useEffect(() => {
     if (!isEdit) return;
     (async () => {
-      const { data } = await supabase
-        .from('characters')
-        .select('*')
-        .eq('id', characterId)
-        .single();
-      if (data) {
+      const { data, error: err } = await supabase
+        .from('characters').select('*').eq('id', characterId).single();
+      if (!err && data) {
         setD(data);
         setWhoPlays(data.player_user_id ? 'me' : 'other');
       }
     })();
   }, [characterId, isEdit]);
 
-  const set = (patch: Partial<Character>) =>
-    setD((p) => ({ ...p, ...patch }));
+  const set = (patch: Partial<Character>) => setD((p) => ({ ...p, ...patch }));
+
+  const handleRaceChange = (newRace: string) => {
+    const oldStats = { str: d.str, dex: d.dex, con: d.con, int: d.int, wis: d.wis, cha: d.cha };
+    const newStats = applyRacialBonuses(newRace, oldStats);
+    set({ race: newRace, ...newStats });
+  };
+
+  const handleSuggestStats = (className: string) => {
+    const suggestion = CLASS_STAT_ARRAYS.find(c => c.class === className);
+    if (!suggestion) return;
+    const baseFromSuggestion = {
+      str: suggestion.str, dex: suggestion.dex, con: suggestion.con,
+      int: suggestion.int, wis: suggestion.wis, cha: suggestion.cha,
+    };
+    const withRacialBonus = d.race ? applyRacialBonuses(d.race, baseFromSuggestion) : baseFromSuggestion;
+    set(withRacialBonus);
+  };
 
   const toggleInArray = (key: keyof Character, value: string) => {
     const arr = (d[key] as string[]) || [];
-    set({
-      [key]: arr.includes(value)
-        ? arr.filter((x) => x !== value)
-        : [...arr, value],
-    } as Partial<Character>);
+    set({ [key]: arr.includes(value) ? arr.filter((x) => x !== value) : [...arr, value] } as Partial<Character>);
   };
 
   const handleSave = async () => {
@@ -85,57 +73,25 @@ export const CharacterForm = () => {
     setSaving(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
-      const { data: campaign } = await supabase
-        .from('campaigns')
-        .select('system')
-        .eq('id', campaignId)
-        .single();
+      const { data: campData } = await supabase
+        .from('campaigns').select('system').eq('id', campaignId).single();
 
       const payload: any = {
-        campaign_id: campaignId,
-        character_name: d.character_name.trim(),
+        ...d, campaign_id: campaignId, character_name: d.character_name.trim(),
         player_user_id: whoPlays === 'me' ? userData.user?.id : null,
-        system: campaign?.system,
-        player_name: d.player_name || null,
-        race: d.race || null,
-        character_class: d.character_class || null,
-        subclass: d.subclass || null,
-        background: d.background || null,
-        str: d.str,
-        dex: d.dex,
-        con: d.con,
-        int: d.int,
-        wis: d.wis,
-        cha: d.cha,
-        level: d.level || null,
-        xp: d.xp || 0,
-        proficiency_bonus: d.proficiency_bonus || null,
-        armor_class: d.armor_class || null,
-        initiative_bonus: d.initiative_bonus || 0,
-        speed: d.speed || 30,
-        hp_current: d.hp_current || null,
-        hp_max: d.hp_max || null,
-        skill_proficiencies: d.skill_proficiencies || [],
-        languages: d.languages || [],
-        inventory: d.inventory || [],
-        spells: d.spells || [],
-        conditions: d.conditions || [],
-        inspiration: d.inspiration || false,
-        notes: d.notes || null,
+        system: campData?.system || 'dnd5e',
       };
+      delete payload.id; delete payload.created_at; delete payload.updated_at;
 
+      let resErr;
       if (isEdit) {
-        const { error: err } = await supabase
-          .from('characters')
-          .update(payload)
-          .eq('id', characterId);
-        if (err) throw err;
+        const { error } = await supabase.from('characters').update(payload).eq('id', characterId);
+        resErr = error;
       } else {
-        const { error: err } = await supabase
-          .from('characters')
-          .insert(payload);
-        if (err) throw err;
+        const { error } = await supabase.from('characters').insert(payload);
+        resErr = error;
       }
+      if (resErr) throw resErr;
       navigate(`/campaign/${campaignId}/characters`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar');
@@ -147,155 +103,130 @@ export const CharacterForm = () => {
   const StatInput = ({ label, k }: { label: string; k: keyof Character }) => (
     <div className="stat-box">
       <label>{label}</label>
-      <input
-        type="number"
-        className="stat-input"
+      <input type="number" className="stat-input" min="1" max="20"
         value={(d[k] as number) ?? ''}
-        onChange={(e) =>
-          set({
-            [k]:
-              e.target.value === '' ? undefined : Number(e.target.value),
-          } as Partial<Character>)
-        }
-      />
+        onChange={(e) => set({ [k]: e.target.value === '' ? undefined : Number(e.target.value) } as Partial<Character>)} />
       <span className="stat-mod">{fmtMod(d[k] as number)}</span>
     </div>
   );
+
+  const Tooltip = ({ text, children }: { text: string; children: React.ReactNode }) => (
+    <span title={text} className="tooltip">{children}</span>
+  );
+
+  const selectedArchetype = ARCHETYPES.find(a => a.id === d.appearance);
 
   return (
     <div className="wizard-container">
       <div className="wizard-main">
         {step === 1 && (
-          <Step title={isEdit ? 'Editar: lo esencial' : 'Paso 1: Lo esencial'}>
-            <input
-              className="input-field"
-              placeholder="Nombre del personaje *"
-              value={d.character_name || ''}
-              onChange={(e) => set({ character_name: e.target.value })}
-            />
+          <Step title={isEdit ? "Editar: Lo esencial" : "Paso 1: Lo esencial"}>
+            <input className="input-field" placeholder="Nombre del personaje *"
+              value={d.character_name || ''} onChange={(e) => set({ character_name: e.target.value })} />
 
             <label className="field-label">¿Quién juega este personaje?</label>
             <label className="radio-row">
-              <input
-                type="radio"
-                checked={whoPlays === 'me'}
-                onChange={() => setWhoPlays('me')}
-              />
+              <input type="radio" checked={whoPlays === 'me'} onChange={() => setWhoPlays('me')} />
               Yo lo juego
             </label>
             <label className="radio-row">
-              <input
-                type="radio"
-                checked={whoPlays === 'other'}
-                onChange={() => setWhoPlays('other')}
-              />
+              <input type="radio" checked={whoPlays === 'other'} onChange={() => setWhoPlays('other')} />
               Otro jugador
             </label>
             {whoPlays === 'other' && (
-              <input
-                className="input-field"
-                placeholder="Nombre del jugador (opcional)"
-                value={d.player_name || ''}
-                onChange={(e) => set({ player_name: e.target.value })}
-              />
+              <input className="input-field" placeholder="Nombre del jugador (opcional)"
+                value={d.player_name || ''} onChange={(e) => set({ player_name: e.target.value })} />
+            )}
+
+            <label className="field-label">¿Cómo querés que se vea?</label>
+            <div className="archetype-grid">
+              {ARCHETYPES.map((a) => (
+                <button key={a.id} type="button"
+                  className={`archetype-btn ${d.appearance === a.id ? 'archetype-selected' : ''}`}
+                  style={{
+                    borderColor: d.appearance === a.id ? a.primaryColor : 'transparent',
+                    backgroundColor: d.appearance === a.id ? `${a.primaryColor}20` : 'transparent',
+                  }}
+                  onClick={() => set({ appearance: a.id })}>
+                  <span className="archetype-emoji">{a.emoji}</span>
+                  <span className="archetype-label">{a.name}</span>
+                </button>
+              ))}
+            </div>
+            {selectedArchetype && (
+              <p className="archetype-desc">✓ {selectedArchetype.description}</p>
             )}
 
             <div className="grid-2">
-              <input
-                className="input-field"
-                placeholder="Raza (opcional)"
-                value={d.race || ''}
-                onChange={(e) => set({ race: e.target.value })}
-              />
-              <input
-                className="input-field"
-                placeholder="Clase (opcional)"
-                value={d.character_class || ''}
-                onChange={(e) => set({ character_class: e.target.value })}
-              />
-              <input
-                className="input-field"
-                placeholder="Subclase (opcional)"
-                value={d.subclass || ''}
-                onChange={(e) => set({ subclass: e.target.value })}
-              />
-              <input
-                className="input-field"
-                placeholder="Trasfondo (opcional)"
-                value={d.background || ''}
-                onChange={(e) => set({ background: e.target.value })}
-              />
+              <label className="field-label">
+                <Tooltip text="Tu origen. Otorga bonificadores. Ej: Elfo +2 DES">
+                  Raza (opcional)
+                </Tooltip>
+                <select className="input-field"
+                  value={d.race || ''} onChange={(e) => handleRaceChange(e.target.value)}>
+                  <option value="">Elegir raza</option>
+                  {['Humano', 'Elfo', 'Enano', 'Halfling', 'Tiefling', 'Orco', 'Dracónido', 'Gnomo', 'Semiélfico'].map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field-label">
+                <Tooltip text="Tu rol en combate. Ej: Mago lanza hechizos, Guerrero ataca">
+                  Clase (opcional)
+                </Tooltip>
+                <select className="input-field"
+                  value={d.character_class || ''} onChange={(e) => set({ character_class: e.target.value })}>
+                  <option value="">Elegir clase</option>
+                  {['Guerrero', 'Mago', 'Clérigo', 'Pícaro', 'Brujo', 'Bárbaro', 'Paladín', 'Artificiero', 'Bardo', 'Explorador', 'Monje', 'Hechicero'].map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </label>
+              <input className="input-field" placeholder="Subclase (opcional)"
+                value={d.subclass || ''} onChange={(e) => set({ subclass: e.target.value })} />
+              <input className="input-field" placeholder="Trasfondo (opcional)"
+                value={d.background || ''} onChange={(e) => set({ background: e.target.value })} />
             </div>
+
+            {d.race && (
+              <p className="bonus-info">
+                <strong>Bonificadores de {d.race}:</strong> {getRacialBonuses(d.race)?.description}
+              </p>
+            )}
           </Step>
         )}
 
         {step === 2 && (
           <Step title="Paso 2: Atributos y combate">
+            {d.character_class && (
+              <button type="button" className="btn-secondary" style={{ marginBottom: '1rem' }}
+                onClick={() => handleSuggestStats(d.character_class!)}>
+                💡 Sugerir stats para {d.character_class}
+              </button>
+            )}
+
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#b3a488' }}>
+              Atributos (modif. racial ya aplicado)
+            </label>
             <div className="stats-row">
-              <StatInput label="FUE" k="str" />
-              <StatInput label="DES" k="dex" />
-              <StatInput label="CON" k="con" />
-              <StatInput label="INT" k="int" />
-              <StatInput label="SAB" k="wis" />
-              <StatInput label="CAR" k="cha" />
+              <StatInput label="FUE" k="str" /><StatInput label="DES" k="dex" />
+              <StatInput label="CON" k="con" /><StatInput label="INT" k="int" />
+              <StatInput label="SAB" k="wis" /><StatInput label="CAR" k="cha" />
             </div>
+
             <div className="grid-2">
-              <label className="field-label">
-                Nivel
-                <input
-                  type="number"
-                  className="input-field"
-                  value={d.level ?? ''}
-                  onChange={(e) => set({ level: Number(e.target.value) })}
-                />
-              </label>
-              <label className="field-label">
-                CA (Clase de Armadura)
-                <input
-                  type="number"
-                  className="input-field"
-                  value={d.armor_class ?? ''}
-                  onChange={(e) => set({ armor_class: Number(e.target.value) })}
-                />
-              </label>
-              <label className="field-label">
-                PV actuales
-                <input
-                  type="number"
-                  className="input-field"
-                  value={d.hp_current ?? ''}
-                  onChange={(e) => set({ hp_current: Number(e.target.value) })}
-                />
-              </label>
-              <label className="field-label">
-                PV máximos
-                <input
-                  type="number"
-                  className="input-field"
-                  value={d.hp_max ?? ''}
-                  onChange={(e) => set({ hp_max: Number(e.target.value) })}
-                />
-              </label>
-              <label className="field-label">
-                Velocidad (pies)
-                <input
-                  type="number"
-                  className="input-field"
-                  value={d.speed ?? ''}
-                  onChange={(e) => set({ speed: Number(e.target.value) })}
-                />
-              </label>
-              <label className="field-label">
-                Bonif. competencia
-                <input
-                  type="number"
-                  className="input-field"
-                  value={d.proficiency_bonus ?? ''}
-                  onChange={(e) =>
-                    set({ proficiency_bonus: Number(e.target.value) })
-                  }
-                />
-              </label>
+              <label className="field-label">Nivel
+                <input type="number" className="input-field" value={d.level ?? ''} onChange={(e) => set({ level: Number(e.target.value) })} /></label>
+              <label className="field-label">CA (Clase de Armadura)
+                <input type="number" className="input-field" value={d.armor_class ?? ''} onChange={(e) => set({ armor_class: Number(e.target.value) })} /></label>
+              <label className="field-label">PV actuales
+                <input type="number" className="input-field" value={d.hp_current ?? ''} onChange={(e) => set({ hp_current: Number(e.target.value) })} /></label>
+              <label className="field-label">PV máximos
+                <input type="number" className="input-field" value={d.hp_max ?? ''} onChange={(e) => set({ hp_max: Number(e.target.value) })} /></label>
+              <label className="field-label">Velocidad (pies)
+                <input type="number" className="input-field" value={d.speed ?? ''} onChange={(e) => set({ speed: Number(e.target.value) })} /></label>
+              <label className="field-label">Bonif. competencia
+                <input type="number" className="input-field" value={d.proficiency_bonus ?? ''} onChange={(e) => set({ proficiency_bonus: Number(e.target.value) })} /></label>
             </div>
           </Step>
         )}
@@ -305,105 +236,61 @@ export const CharacterForm = () => {
             <label className="field-label">Habilidades competentes</label>
             <div className="chip-grid">
               {SKILLS_5E.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  className={`chip ${
-                    (d.skill_proficiencies || []).includes(s) ? 'chip-on' : ''
-                  }`}
-                  onClick={() => toggleInArray('skill_proficiencies', s)}
-                >
-                  {s}
-                </button>
+                <button key={s} type="button"
+                  className={`chip ${(d.skill_proficiencies || []).includes(s) ? 'chip-on' : ''}`}
+                  onClick={() => toggleInArray('skill_proficiencies', s)}>{s}</button>
               ))}
             </div>
 
-            <label className="field-label">
-              Idiomas (separados por coma)
-            </label>
-            <input
-              className="input-field"
-              placeholder="Común, Élfico, Enano..."
+            <label className="field-label">Idiomas (separados por coma)</label>
+            <input className="input-field" placeholder="Común, Élfico, Enano..."
               value={(d.languages || []).join(', ')}
-              onChange={(e) =>
-                set({
-                  languages: e.target.value
-                    .split(',')
-                    .map((x) => x.trim())
-                    .filter(Boolean),
-                })
-              }
-            />
+              onChange={(e) => set({ languages: e.target.value.split(',').map(x => x.trim()).filter(Boolean) })} />
 
             <label className="field-label">Inventario (un objeto por línea)</label>
-            <textarea
-              className="input-field"
-              rows={4}
-              placeholder="Espada larga&#10;Poción de curación x2&#10;Cuerda (50 pies)"
-              value={(d.inventory || []).map((i) => i.name).join('\n')}
-              onChange={(e) =>
-                set({
-                  inventory: e.target.value
-                    .split('\n')
-                    .map((x) => x.trim())
-                    .filter(Boolean)
-                    .map((name) => ({ name })),
-                })
-              }
-            />
+            <textarea className="input-field" rows={4} placeholder="Espada larga&#10;Poción de curación x2&#10;Cuerda (50 pies)"
+              value={(d.inventory || []).map(i => i.name).join('\n')}
+              onChange={(e) => set({ inventory: e.target.value.split('\n').map(x => x.trim()).filter(Boolean).map(name => ({ name })) })} />
 
             <label className="field-label">Hechizos (uno por línea)</label>
-            <textarea
-              className="input-field"
-              rows={4}
-              placeholder="Proyectil mágico&#10;Curar heridas&#10;Escudo"
-              value={(d.spells || []).map((s) => s.name).join('\n')}
-              onChange={(e) =>
-                set({
-                  spells: e.target.value
-                    .split('\n')
-                    .map((x) => x.trim())
-                    .filter(Boolean)
-                    .map((name) => ({ name })),
-                })
-              }
-            />
+            <textarea className="input-field" rows={4} placeholder="Proyectil mágico&#10;Curar heridas&#10;Escudo"
+              value={(d.spells || []).map(s => s.name).join('\n')}
+              onChange={(e) => set({ spells: e.target.value.split('\n').map(x => x.trim()).filter(Boolean).map(name => ({ name })) })} />
 
             <label className="field-label">Rasgos de personalidad / notas</label>
-            <textarea
-              className="input-field"
-              rows={3}
-              placeholder="Personalidad, ideales, vínculos, defectos..."
-              value={d.notes || ''}
-              onChange={(e) => set({ notes: e.target.value })}
-            />
+            <textarea className="input-field" rows={3} placeholder="Personalidad, ideales, vínculos, defectos..."
+              value={d.notes || ''} onChange={(e) => set({ notes: e.target.value })} />
           </Step>
         )}
 
         {step === 4 && (
           <Step title="Paso 4: Revisar y guardar">
             <div className="summary">
-              <p>
-                <strong>{d.character_name || '(sin nombre)'}</strong>
-              </p>
-              <p>
-                {[d.race, d.character_class, d.subclass]
-                  .filter(Boolean)
-                  .join(' · ') || 'Sin clase/raza'}
-              </p>
-              <p>
-                Nivel {d.level ?? '—'} · CA {d.armor_class ?? '—'} · PV{' '}
-                {d.hp_current ?? '—'}/{d.hp_max ?? '—'}
-              </p>
-              <p>
-                FUE {fmtMod(d.str)} DES {fmtMod(d.dex)} CON {fmtMod(d.con)} INT{' '}
-                {fmtMod(d.int)} SAB {fmtMod(d.wis)} CAR {fmtMod(d.cha)}
-              </p>
-              <p>
-                {(d.skill_proficiencies || []).length} competencias ·{' '}
-                {(d.inventory || []).length} objetos ·{' '}
-                {(d.spells || []).length} hechizos
-              </p>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                {selectedArchetype && (
+                  <div style={{
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '8px',
+                    background: `linear-gradient(135deg, ${selectedArchetype.primaryColor} 0%, ${selectedArchetype.secondaryColor} 100%)`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '32px',
+                  }}>
+                    {selectedArchetype.emoji}
+                  </div>
+                )}
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: '1.25rem' }}><strong>{d.character_name || '(sin nombre)'}</strong></p>
+                  <p style={{ margin: '0.25rem 0', color: '#b3a488' }}>
+                    {[d.race, d.character_class, d.subclass].filter(Boolean).join(' · ') || 'Sin clase/raza'}
+                  </p>
+                </div>
+              </div>
+              <p>Nivel {d.level ?? '—'} · CA {d.armor_class ?? '—'} · PV {d.hp_current ?? '—'}/{d.hp_max ?? '—'}</p>
+              <p>FUE {fmtMod(d.str)} DES {fmtMod(d.dex)} CON {fmtMod(d.con)} INT {fmtMod(d.int)} SAB {fmtMod(d.wis)} CAR {fmtMod(d.cha)}</p>
+              <p>{(d.skill_proficiencies || []).length} competencias · {(d.inventory || []).length} objetos · {(d.spells || []).length} hechizos</p>
             </div>
           </Step>
         )}
@@ -411,45 +298,18 @@ export const CharacterForm = () => {
         {error && <p className="error-text">{error}</p>}
 
         <div className="wizard-buttons">
-          <button
-            className="btn-secondary"
-            onClick={() =>
-              step > 1
-                ? setStep(step - 1)
-                : navigate(`/campaign/${campaignId}/characters`)
-            }
-            disabled={saving}
-          >
+          <button onClick={() => step > 1 ? setStep(step - 1) : navigate(`/campaign/${campaignId}/characters`)} disabled={saving} className="btn-secondary">
             {step > 1 ? '← Atrás' : 'Cancelar'}
           </button>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              className="btn-secondary"
-              onClick={handleSave}
-              disabled={saving || !d.character_name?.trim()}
-            >
+            <button className="btn-secondary" onClick={handleSave} disabled={saving || !d.character_name?.trim()}>
               {saving ? 'Guardando...' : 'Guardar ya'}
             </button>
-            {step < 4 ? (
-              <button
-                className="btn-primary"
-                onClick={() => setStep(step + 1)}
-              >
-                Siguiente →
-              </button>
-            ) : (
-              <button
-                className="btn-primary"
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving
-                  ? 'Guardando...'
-                  : isEdit
-                    ? 'Guardar cambios'
-                    : '¡Crear!'}
-              </button>
-            )}
+            {step < 4
+              ? <button className="btn-primary" onClick={() => setStep(step + 1)}>Siguiente →</button>
+              : <button className="btn-primary" onClick={handleSave} disabled={saving || !d.character_name?.trim()}>
+                  {saving ? 'Guardando...' : (isEdit ? 'Guardar cambios' : '¡Crear!')}
+                </button>}
           </div>
         </div>
       </div>

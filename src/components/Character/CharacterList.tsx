@@ -1,130 +1,97 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import type { Character } from '../../lib/types';
 import { fmtMod } from '../../lib/dnd';
+import { ARCHETYPES } from '../../lib/d5e-data';
 
 export const CharacterList = () => {
-  const navigate = useNavigate();
   const { campaignId } = useParams();
-  const [characters, setCharacters] = useState<Character[]>([]);
+  const navigate = useNavigate();
+  const [chars, setChars] = useState<any[]>([]);
+  const [campaign, setCampaign] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   useEffect(() => {
-    loadCharacters();
+    const load = async () => {
+      const { data: campData } = await supabase.from('campaigns')
+        .select('*').eq('id', campaignId).single();
+      setCampaign(campData);
+
+      const { data: charData } = await supabase.from('characters')
+        .select('*').eq('campaign_id', campaignId).order('created_at', { ascending: true });
+      setChars(charData || []);
+      setLoading(false);
+    };
+    load();
   }, [campaignId]);
 
-  const loadCharacters = async () => {
-    setLoading(true);
-    try {
-      const { data } = await supabase
-        .from('characters')
-        .select('*')
-        .eq('campaign_id', campaignId)
-        .order('created_at', { ascending: false });
-      setCharacters(data || []);
-    } catch (err) {
-      console.error('Error loading characters:', err);
-    } finally {
-      setLoading(false);
-    }
+  const doDelete = async (id: string) => {
+    await supabase.from('characters').delete().eq('id', id);
+    setConfirmDelete(null);
+    setChars(chars.filter(c => c.id !== id));
   };
 
-  const handleDelete = async (characterId: string) => {
-    if (!window.confirm('¿Borrar este personaje? No se puede deshacer.'))
-      return;
-    setDeleting(characterId);
-    try {
-      const { error } = await supabase
-        .from('characters')
-        .delete()
-        .eq('id', characterId);
-      if (error) throw error;
-      setCharacters((prev) => prev.filter((c) => c.id !== characterId));
-    } catch (err) {
-      console.error('Error deleting character:', err);
-    } finally {
-      setDeleting(null);
-    }
+  const getArchetype = (appearanceId?: string) => {
+    if (!appearanceId) return null;
+    return ARCHETYPES.find(a => a.id === appearanceId);
   };
+
+  if (loading) return <div className="page-pad">Cargando personajes...</div>;
 
   return (
-    <div className="campaign-home">
-      <div className="campaign-home-header">
-        <h1>Personajes</h1>
-        <button
-          className="btn-primary"
-          onClick={() =>
-            navigate(`/campaign/${campaignId}/characters/new`)
-          }
-        >
-          + Crear personaje
+    <div className="list-page">
+      <header className="list-header">
+        <button className="btn-secondary" onClick={() => navigate(`/campaign/${campaignId}`)}>
+          ← {campaign?.name || 'Campaña'}
         </button>
-      </div>
+        <h1>Personajes</h1>
+        <button className="btn-primary" onClick={() => navigate(`/campaign/${campaignId}/characters/new`)}>
+          + Nuevo personaje
+        </button>
+      </header>
 
-      {loading ? (
-        <div className="loading-container">
-          <div className="loading-spinner">Cargando...</div>
-        </div>
-      ) : characters.length === 0 ? (
+      {chars.length === 0 ? (
         <div className="campaign-empty">
-          <p>No hay personajes en esta campaña todavía.</p>
-          <button
-            className="btn-primary btn-large"
-            onClick={() =>
-              navigate(`/campaign/${campaignId}/characters/new`)
-            }
-          >
-            ¡Crear el primer personaje!
-          </button>
+          <p>Todavía no hay personajes. Creá el primero.</p>
         </div>
       ) : (
-        <div className="character-grid">
-          {characters.map((char) => (
-            <div key={char.id} className="character-card">
-              <div className="char-header">
-                <h3>{char.character_name}</h3>
-                {char.player_user_id && <span className="char-mine">Mi PC</span>}
-              </div>
-              <div className="char-meta">
-                {[char.race, char.character_class]
-                  .filter(Boolean)
-                  .join(' · ') || 'Sin clase/raza'}
-              </div>
-              {char.level && <div className="char-level">Nv. {char.level}</div>}
-              {char.str !== undefined && (
-                <div className="char-abilities">
-                  FUE {fmtMod(char.str)} · DES {fmtMod(char.dex)} · CON{' '}
-                  {fmtMod(char.con)}
+        <div className="char-grid">
+          {chars.map((c) => {
+            const archetype = getArchetype(c.appearance);
+            return (
+              <div key={c.id} className="char-card">
+                {archetype && (
+                  <div className="char-card-visual" style={{
+                    background: `linear-gradient(135deg, ${archetype.primaryColor} 0%, ${archetype.secondaryColor} 100%)`,
+                  }}>
+                    <span className="char-emoji">{archetype.emoji}</span>
+                  </div>
+                )}
+                <div className="char-card-main" onClick={() => navigate(`/campaign/${campaignId}/characters/${c.id}/edit`)}>
+                  <h3>{c.character_name}</h3>
+                  <p className="meta">{[c.race, c.character_class].filter(Boolean).join(' · ') || 'Sin clase'} · Nivel {c.level ?? 1}</p>
+                  <p className="meta">CA {c.armor_class ?? '—'} · PV {c.hp_current ?? '—'}/{c.hp_max ?? '—'}</p>
+                  <p className="stat-line">
+                    FUE {fmtMod(c.str)} · DES {fmtMod(c.dex)} · CON {fmtMod(c.con)} · INT {fmtMod(c.int)} · SAB {fmtMod(c.wis)} · CAR {fmtMod(c.cha)}
+                  </p>
                 </div>
-              )}
-              {char.hp_max && (
-                <div className="char-hp">
-                  PV: {char.hp_current ?? '—'}/{char.hp_max}
+                <div className="char-card-actions">
+                  <button className="btn-secondary" onClick={() => navigate(`/campaign/${campaignId}/characters/${c.id}/edit`)}>
+                    Editar
+                  </button>
+                  {confirmDelete === c.id ? (
+                    <>
+                      <button className="btn-danger" onClick={() => doDelete(c.id)}>Confirmar</button>
+                      <button className="btn-secondary" onClick={() => setConfirmDelete(null)}>No</button>
+                    </>
+                  ) : (
+                    <button className="btn-danger-outline" onClick={() => setConfirmDelete(c.id)}>Borrar</button>
+                  )}
                 </div>
-              )}
-              <div className="char-actions">
-                <button
-                  className="btn-secondary"
-                  onClick={() =>
-                    navigate(
-                      `/campaign/${campaignId}/characters/${char.id}/edit`
-                    )
-                  }
-                >
-                  Editar
-                </button>
-                <button
-                  className="btn-danger"
-                  onClick={() => handleDelete(char.id!)}
-                  disabled={deleting === char.id}
-                >
-                  {deleting === char.id ? 'Borrando...' : 'Borrar'}
-                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

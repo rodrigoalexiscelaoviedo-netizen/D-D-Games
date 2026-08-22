@@ -617,6 +617,161 @@ textarea.input-field {
   cursor: not-allowed;
 }
 
+/* --- ARQUETIPOS --- */
+.archetype-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.archetype-btn {
+  background: var(--bg-surface-2);
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-body);
+}
+.archetype-btn:hover {
+  border-color: var(--gold);
+}
+.archetype-selected {
+  border-color: var(--gold) !important;
+  background: rgba(201, 162, 75, 0.15) !important;
+}
+.archetype-emoji {
+  font-size: 2rem;
+}
+.archetype-label {
+  font-size: 0.7rem;
+  text-align: center;
+  color: var(--ink-muted);
+}
+.archetype-desc {
+  color: var(--gold);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+/* --- BONUS INFO --- */
+.bonus-info {
+  background: rgba(201, 162, 75, 0.1);
+  border-left: 3px solid var(--gold);
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  color: var(--ink);
+  font-size: 0.85rem;
+  margin-top: 0.75rem;
+}
+
+/* --- TOOLTIPS --- */
+.tooltip {
+  cursor: help;
+  border-bottom: 1px dotted var(--gold);
+  position: relative;
+}
+.tooltip:hover {
+  color: var(--gold);
+}
+
+/* --- CHARACTER CARDS CON VISUAL --- */
+.char-card-visual {
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.char-emoji {
+  font-size: 4rem;
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5));
+}
+.list-page {
+  padding: 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.list-header h1 {
+  flex: 1;
+  margin: 0;
+}
+.list-header button {
+  flex-shrink: 0;
+}
+.char-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+.char-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.char-card:hover {
+  border-color: var(--gold);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card);
+}
+.char-card-main {
+  padding: 1rem;
+  flex: 1;
+}
+.char-card-main h3 {
+  margin: 0 0 0.5rem;
+  color: var(--gold);
+}
+.char-card-main .meta {
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+.char-card-main .stat-line {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  font-family: monospace;
+}
+.char-card-actions {
+  padding: 0 1rem 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+.char-card-actions button {
+  flex: 1;
+  font-size: 0.85rem;
+  padding: 0.5rem;
+}
+.btn-danger-outline {
+  background: transparent;
+  color: var(--wine);
+  border: 1px solid var(--wine);
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-danger-outline:hover {
+  background: var(--wine);
+  color: var(--bg-parchment);
+}
+
 /* --- RESPONSIVE --- */
 @media (max-width: 1024px) {
   .wizard-container {
@@ -625,5 +780,16 @@ textarea.input-field {
 
   .guidebook {
     width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .archetype-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); }
+  .list-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .char-grid {
+    grid-template-columns: 1fr;
   }
 }
