@@ -85,16 +85,44 @@ export const CharacterForm = () => {
     setSaving(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
+      const { data: campaign } = await supabase
+        .from('campaigns')
+        .select('system')
+        .eq('id', campaignId)
+        .single();
+
       const payload: any = {
-        ...d,
         campaign_id: campaignId,
         character_name: d.character_name.trim(),
         player_user_id: whoPlays === 'me' ? userData.user?.id : null,
+        system: campaign?.system,
+        player_name: d.player_name || null,
+        race: d.race || null,
+        character_class: d.character_class || null,
+        subclass: d.subclass || null,
+        background: d.background || null,
+        str: d.str,
+        dex: d.dex,
+        con: d.con,
+        int: d.int,
+        wis: d.wis,
+        cha: d.cha,
+        level: d.level || null,
+        xp: d.xp || 0,
+        proficiency_bonus: d.proficiency_bonus || null,
+        armor_class: d.armor_class || null,
+        initiative_bonus: d.initiative_bonus || 0,
+        speed: d.speed || 30,
+        hp_current: d.hp_current || null,
+        hp_max: d.hp_max || null,
+        skill_proficiencies: d.skill_proficiencies || [],
+        languages: d.languages || [],
+        inventory: d.inventory || [],
+        spells: d.spells || [],
+        conditions: d.conditions || [],
+        inspiration: d.inspiration || false,
+        notes: d.notes || null,
       };
-      delete payload.id;
-      delete payload.created_at;
-      delete payload.updated_at;
-      delete payload.system;
 
       if (isEdit) {
         const { error: err } = await supabase
