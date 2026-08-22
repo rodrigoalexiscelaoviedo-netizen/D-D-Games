@@ -24,6 +24,12 @@ export const CampaignHome = () => {
   if (loading) return <div className="page-pad">Cargando campaña...</div>;
   if (!campaign) return <div className="page-pad">No se encontró la campaña.</div>;
 
+  const handleDelete = async () => {
+    if (!window.confirm('¿Borrar esta campaña? No se puede deshacer.')) return;
+    await supabase.from('campaigns').delete().eq('id', campaignId);
+    navigate('/dashboard');
+  };
+
   return (
     <div className="campaign-home">
       <header className="campaign-home-header">
@@ -31,14 +37,22 @@ export const CampaignHome = () => {
           ← Mis campañas
         </button>
         <h1>{campaign.name}</h1>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={() => navigate(`/campaign/${campaignId}/characters`)}
+            className="btn-primary"
+          >
+            Personajes
+          </button>
+          <button onClick={handleDelete} className="btn-danger">
+            Borrar
+          </button>
+        </div>
       </header>
       <div className="campaign-home-body">
         <p className="campaign-meta">
           Sistema: {campaign.system} · Estilo: {campaign.playstyle} · Tono: {campaign.tone}
         </p>
-        <div className="campaign-empty">
-          <p>Tu campaña está lista. Los personajes vienen en la próxima fase.</p>
-        </div>
       </div>
     </div>
   );
