@@ -120,6 +120,8 @@ export const CharacterForm = () => {
       if (d.notes) payload.notes = d.notes;
       if (d.milestone) payload.milestone = d.milestone;
 
+      console.log('Payload:', payload);
+
       let resErr;
       if (isEdit) {
         const { error } = await supabase.from('characters').update(payload).eq('id', characterId);
@@ -128,9 +130,13 @@ export const CharacterForm = () => {
         const { error } = await supabase.from('characters').insert(payload);
         resErr = error;
       }
-      if (resErr) throw resErr;
+      if (resErr) {
+        console.log('Error detail:', resErr);
+        throw resErr;
+      }
       navigate(`/campaign/${campaignId}/characters`);
     } catch (err) {
+      console.log('Catch error:', err);
       setError(err instanceof Error ? err.message : 'No se pudo guardar');
     } finally {
       setSaving(false);
