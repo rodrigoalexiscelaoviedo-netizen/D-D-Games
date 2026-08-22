@@ -27,8 +27,20 @@ export const Signup = () => {
 
     setIsLoading(true);
     try {
-      await auth.signup(email, password);
-      navigate('/dashboard');
+      // Retry 3 times
+      for (let i = 0; i < 3; i++) {
+        try {
+          await auth.signup(email, password);
+          navigate('/dashboard');
+          return;
+        } catch (err) {
+          if (i === 2) {
+            throw err; // Last attempt failed
+          }
+          // Wait 1 second before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Signup failed');
     } finally {
