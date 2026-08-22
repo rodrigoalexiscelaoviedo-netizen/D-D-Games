@@ -7,7 +7,6 @@ import { COMBAT_ACTIONS, CLASS_COMBAT_TIPS } from '../../lib/combat-data';
 export const CombatTurn = () => {
   const { campaignId, combatId } = useParams();
   const navigate = useNavigate();
-  const [combat, setCombat] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
   const [currentParticipant, setCurrentParticipant] = useState<any>(null);
   const [round, setRound] = useState(1);
@@ -16,19 +15,12 @@ export const CombatTurn = () => {
 
   useEffect(() => {
     (async () => {
-      const { data: combatData } = await supabase
-        .from('combats')
-        .select('*')
-        .eq('id', combatId)
-        .single();
-
       const { data: partData } = await supabase
         .from('combat_participants')
         .select('*')
         .eq('combat_id', combatId)
         .order('initiative', { ascending: false });
 
-      setCombat(combatData);
       setParticipants(partData || []);
       setLoading(false);
 
@@ -39,7 +31,7 @@ export const CombatTurn = () => {
     })();
   }, [combatId]);
 
-  const roll = async (actionType: string, target: any) => {
+  const roll = async (target: any) => {
     const roll20 = rollD20();
     const isCrit = isCritical(roll20);
     const hit = roll20 >= target.armor_class;
