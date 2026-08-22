@@ -48,6 +48,47 @@ const GUIDANCE_MAP: Record<string, Record<number, GuidelineStep>> = {
       nextStep: "¡A crear personajes!",
     },
   },
+  character_creation: {
+    1: {
+      title: "Lo esencial",
+      description: "Con un nombre alcanza para empezar. El resto lo podés completar cuando quieras.",
+      tips: [
+        "Solo el nombre es obligatorio — todo lo demás es opcional",
+        "Podés guardar ahora y seguir editando después",
+        "¿Quién juega este personaje? Elegí 'Yo' si lo llevás vos",
+      ],
+      nextStep: "Atributos y combate",
+    },
+    2: {
+      title: "Atributos",
+      description: "Cargá el número (ej. 16) y la app calcula el modificador (+3) sola.",
+      tips: [
+        "Los 6 atributos van de 1 a 20 normalmente",
+        "El modificador se calcula solo: (score - 10) / 2",
+        "Si no los sabés, dejalos en 10 (modificador +0) y seguí",
+      ],
+      nextStep: "Competencias y detalles",
+    },
+    3: {
+      title: "Competencias y magia",
+      description: "Todo opcional. Cuanto más completes, mejores consejos vas a tener en combate.",
+      tips: [
+        "Marcá las habilidades en las que el personaje es competente",
+        "Si es lanzador, cargá sus hechizos y espacios",
+        "El inventario te ayuda a no olvidarte objetos en la partida",
+      ],
+      nextStep: "Revisar y guardar",
+    },
+    4: {
+      title: "Listo para la aventura",
+      description: "Revisá y guardá. Podés volver a editar todo cuando quieras.",
+      tips: [
+        "Nada es definitivo: editás la ficha desde la lista de personajes",
+        "El personaje ya queda disponible para las sesiones",
+      ],
+      nextStep: "¡A jugar!",
+    },
+  },
 };
 
 export const Guidebook = ({
