@@ -88,7 +88,7 @@ export const CharacterList = () => {
                 {char.player_user_id && <span className="char-mine">Mi PC</span>}
               </div>
               <div className="char-meta">
-                {[char.race, char.class]
+                {[char.race, char.character_class]
                   .filter(Boolean)
                   .join(' · ') || 'Sin clase/raza'}
               </div>

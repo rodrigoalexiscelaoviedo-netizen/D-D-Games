@@ -6,7 +6,7 @@ export interface Character {
   player_user_id?: string | null;
   portrait_url?: string;
   race?: string;
-  class?: string;
+  character_class?: string;
   subclass?: string;
   background?: string;
   str?: number;

@@ -10,7 +10,7 @@ const EMPTY: Partial<Character> = {
   character_name: '',
   player_name: '',
   race: '',
-  class: '',
+  character_class: '',
   subclass: '',
   background: '',
   str: 10,
@@ -182,8 +182,8 @@ export const CharacterForm = () => {
               <input
                 className="input-field"
                 placeholder="Clase (opcional)"
-                value={d.class || ''}
-                onChange={(e) => set({ class: e.target.value })}
+                value={d.character_class || ''}
+                onChange={(e) => set({ character_class: e.target.value })}
               />
               <input
                 className="input-field"
@@ -359,7 +359,7 @@ export const CharacterForm = () => {
                 <strong>{d.character_name || '(sin nombre)'}</strong>
               </p>
               <p>
-                {[d.race, d.class, d.subclass]
+                {[d.race, d.character_class, d.subclass]
                   .filter(Boolean)
                   .join(' · ') || 'Sin clase/raza'}
               </p>
