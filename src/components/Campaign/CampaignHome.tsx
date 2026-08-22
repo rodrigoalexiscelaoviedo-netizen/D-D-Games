@@ -44,6 +44,12 @@ export const CampaignHome = () => {
           >
             Personajes
           </button>
+          <button
+            onClick={() => navigate(`/campaign/${campaignId}/combat/new`)}
+            className="btn-primary"
+          >
+            ⚔️ Iniciar Combate
+          </button>
           <button onClick={handleDelete} className="btn-danger">
             Borrar
           </button>

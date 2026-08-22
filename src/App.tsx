@@ -7,6 +7,8 @@ import { CampaignWizard } from './components/Campaign/CampaignWizard';
 import { CampaignHome } from './components/Campaign/CampaignHome';
 import { CharacterForm } from './components/Character/CharacterForm';
 import { CharacterList } from './components/Character/CharacterList';
+import { CombatSetup } from './components/Combat/CombatSetup';
+import { CombatTurn } from './components/Combat/CombatTurn';
 
 export default function App() {
   return (
@@ -59,6 +61,22 @@ export default function App() {
           element={
             <ProtectedRoute>
               <CharacterForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/campaign/:campaignId/combat/new"
+          element={
+            <ProtectedRoute>
+              <CombatSetup />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/campaign/:campaignId/combat/:combatId"
+          element={
+            <ProtectedRoute>
+              <CombatTurn />
             </ProtectedRoute>
           }
         />

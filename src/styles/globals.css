@@ -773,6 +773,48 @@ textarea.input-field {
   color: var(--bg-parchment);
 }
 
+/* --- COMBAT --- */
+.combat-setup { max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+.setup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+.setup-section { background: var(--bg-surface); border: 1px solid var(--border-gold); border-radius: var(--radius); padding: 1.5rem; }
+.setup-section h2 { color: var(--gold); margin-bottom: 1rem; }
+.char-checkboxes { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
+.checkbox-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; border: 1px solid var(--border-soft); border-radius: var(--radius); cursor: pointer; }
+.checkbox-row:hover { border-color: var(--gold); }
+.enemy-form { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.enemies-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
+.enemy-item { display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface-2); padding: 0.75rem; border-radius: var(--radius); }
+.setup-buttons { display: flex; gap: 1rem; margin-top: 1.5rem; }
+
+.combat-view { max-width: 900px; margin: 0 auto; padding: 0 1rem; }
+.combat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+.combat-header h1 { color: var(--gold); }
+
+.combat-state { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+.state-column h3 { color: var(--gold); margin-bottom: 1rem; }
+.participant-card { background: var(--bg-surface); border: 1px solid var(--border-gold); border-radius: var(--radius); padding: 1rem; }
+.participant-card.enemy { border-color: var(--wine); }
+.hp-bar { width: 100%; height: 20px; background: var(--bg-surface-2); border-radius: 4px; overflow: hidden; margin: 0.5rem 0; }
+.hp-fill { height: 100%; transition: width 0.3s; }
+.hp-text { font-size: 0.85rem; color: var(--ink-muted); }
+
+.combat-actions { background: var(--bg-surface); border: 1px solid var(--border-gold); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 2rem; }
+.combat-actions h3 { color: var(--gold); margin-bottom: 0.5rem; }
+.combat-tip { background: rgba(201, 162, 75, 0.1); padding: 0.75rem; border-radius: var(--radius); margin-bottom: 1rem; color: var(--ink); font-size: 0.9rem; }
+.action-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem; }
+.action-btn { background: var(--bg-surface-2); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 1rem; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
+.action-btn:hover { border-color: var(--gold); transform: scale(1.05); }
+.action-emoji { font-size: 1.5rem; }
+.action-label { font-weight: 600; color: var(--gold); font-size: 0.85rem; }
+.action-desc { font-size: 0.7rem; color: var(--ink-muted); text-align: center; }
+
+.combat-log { background: var(--bg-surface); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 1rem; max-height: 200px; overflow-y: auto; }
+.log-entries { display: flex; flex-direction: column; gap: 0.25rem; }
+.log-entry { font-size: 0.8rem; color: var(--ink); padding: 0.25rem; border-left: 2px solid var(--gold); padding-left: 0.5rem; }
+
+.combat-result { text-align: center; background: rgba(34, 197, 94, 0.1); border: 1px solid #22c55e; border-radius: var(--radius); padding: 2rem; }
+.combat-result h2 { color: #22c55e; }
+
 /* --- RESPONSIVE --- */
 @media (max-width: 1024px) {
   .wizard-container {

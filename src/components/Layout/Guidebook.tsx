@@ -89,6 +89,18 @@ const GUIDANCE_MAP: Record<string, Record<number, GuidelineStep>> = {
       nextStep: "¡A jugar!",
     },
   },
+  combat: {
+    1: {
+      title: "Turno en combate",
+      description: "Tira d20 vs. la CA del enemigo. Si la tirada + tu modificador >= CA, golpeas.",
+      tips: [
+        "Natural 20 = crítico (daño x2)",
+        "Natural 1 = falla automática",
+        "Tu DEX es tu iniciativa. DEX alta = actúas primero",
+      ],
+      nextStep: "Espera tu turno siguiente",
+    },
+  },
 };
 
 export const Guidebook = ({
