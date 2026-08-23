@@ -7,6 +7,8 @@ interface Props {
   onGoToPreviousScene?: () => Promise<void>;
   canGoToPreviousScene?: boolean;
   onInitiateCombat?: () => Promise<void>;
+  onResolveCombatVictory?: () => Promise<void>;
+  onResolveCombatDefeat?: () => Promise<void>;
   isLoading?: boolean;
   sceneCount?: number;
 }
@@ -18,6 +20,8 @@ export const SceneDMView = ({
   onGoToPreviousScene,
   canGoToPreviousScene,
   onInitiateCombat,
+  onResolveCombatVictory,
+  onResolveCombatDefeat,
   isLoading,
   sceneCount,
 }: Props) => {
@@ -68,17 +72,31 @@ export const SceneDMView = ({
                 Iniciar combate
               </button>
             )}
-            <div className="combat-manual-resolution">
-              <p className="resolution-label">O resolver manualmente:</p>
-              <div className="resolution-buttons">
-                <button className="btn-secondary" disabled>
-                  Resolver: Victoria
-                </button>
-                <button className="btn-secondary" disabled>
-                  Resolver: Derrota
-                </button>
+            {(onResolveCombatVictory || onResolveCombatDefeat) && (
+              <div className="combat-manual-resolution">
+                <p className="resolution-label">O resolver manualmente:</p>
+                <div className="resolution-buttons">
+                  {onResolveCombatVictory && (
+                    <button
+                      className="btn-secondary"
+                      onClick={onResolveCombatVictory}
+                      disabled={isLoading}
+                    >
+                      Resolver: Victoria
+                    </button>
+                  )}
+                  {onResolveCombatDefeat && (
+                    <button
+                      className="btn-secondary"
+                      onClick={onResolveCombatDefeat}
+                      disabled={isLoading}
+                    >
+                      Resolver: Derrota
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 

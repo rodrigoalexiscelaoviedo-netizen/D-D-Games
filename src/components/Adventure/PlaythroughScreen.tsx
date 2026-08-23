@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { cerrarCombate } from '../../lib/combat-return';
 import type { Playthrough, Scene, SceneOption } from '../../lib/adventure-types';
 import { toPlayerScene, toPlayerOption } from '../../lib/adventure-types';
 import { ScenePlayerView } from './ScenePlayerView';
@@ -273,6 +274,60 @@ export const PlaythroughScreen = () => {
     }
   };
 
+  const handleResolveCombatManually = async (resultado: 'victoria' | 'derrota') => {
+    if (!playthrough || !scene || !playthroughId) return;
+
+    try {
+      setLoading(true);
+
+      const { data: combats } = await supabase
+        .from('combats')
+        .select('id')
+        .eq('playthrough_id', playthroughId)
+        .eq('scene_id', scene.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (!combats || combats.length === 0) {
+        throw new Error('No hay combate activo en esta escena');
+      }
+
+      const combatId = combats[0].id;
+      const result = await cerrarCombate(playthroughId, scene.id, resultado, combatId);
+
+      if (!result.leads_to_scene_id) {
+        throw new Error('Combate cerrado pero sin destino de escena');
+      }
+
+      const { data: nextScene } = await supabase
+        .from('scenes')
+        .select('*')
+        .eq('id', result.leads_to_scene_id)
+        .single();
+
+      if (nextScene) {
+        setScene(nextScene);
+        setPlaythrough({
+          ...playthrough,
+          current_scene_id: result.leads_to_scene_id,
+        });
+
+        const { data: nextOptions } = await supabase
+          .from('scene_options')
+          .select('*')
+          .eq('scene_id', nextScene.id)
+          .order('option_order', { ascending: true });
+
+        setOptions(nextOptions || []);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error desconocido';
+      alert(`Error al resolver combate: ${message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGoToPreviousScene = async () => {
     if (!playthrough) return;
 
@@ -401,6 +456,12 @@ export const PlaythroughScreen = () => {
           onGoToPreviousScene={handleGoToPreviousScene}
           canGoToPreviousScene={hasPreviousScene}
           onInitiateCombat={scene.scene_type === 'combate' ? handleInitiateCombat : undefined}
+          onResolveCombatVictory={
+            scene.scene_type === 'combate' ? () => handleResolveCombatManually('victoria') : undefined
+          }
+          onResolveCombatDefeat={
+            scene.scene_type === 'combate' ? () => handleResolveCombatManually('derrota') : undefined
+          }
           isLoading={loading}
           sceneCount={sceneCount}
         />
