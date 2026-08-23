@@ -3,10 +3,10 @@ import { supabase } from './supabase';
 export async function cerrarCombate(
   playthroughId: string,
   sceneId: string,
-  resultado: 'victoria' | 'derrota',
+  resultado: 'victory' | 'defeat',
   combatId: string,
 ): Promise<{ leads_to_scene_id: string }> {
-  const optionOrder = resultado === 'victoria' ? 1 : 2;
+  const optionOrder = resultado === 'victory' ? 1 : 2;
 
   const { data: option, error: optionError } = await supabase
     .from('scene_options')
@@ -67,9 +67,10 @@ export async function cerrarCombate(
     throw new Error('No se pudo actualizar el playthrough después del combate');
   }
 
+  const statusToSet = resultado === 'victory' ? 'finished' : 'defeat';
   const { error: combatStatusError } = await supabase
     .from('combats')
-    .update({ status: 'completed' })
+    .update({ status: statusToSet })
     .eq('id', combatId)
     .select();
 

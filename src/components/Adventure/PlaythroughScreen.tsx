@@ -293,7 +293,8 @@ export const PlaythroughScreen = () => {
       }
 
       const combatId = combats[0].id;
-      const result = await cerrarCombate(playthroughId, scene.id, resultado, combatId);
+      const resultadoEnglish = resultado === 'victoria' ? 'victory' : 'defeat';
+      const result = await cerrarCombate(playthroughId, scene.id, resultadoEnglish, combatId);
 
       if (!result.leads_to_scene_id) {
         throw new Error('Combate cerrado pero sin destino de escena');

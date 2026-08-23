@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { cerrarCombate } from '../../lib/combat-return';
 import { resolveAttack, nextAliveIndex, isCombatOver, abilityMod, roll, skillCheck, getAbility } from '../../lib/combat-engine';
 import type { RollResult } from '../../lib/combat-engine';
 
@@ -99,10 +100,10 @@ export const CombatScreen = () => {
     if (over) {
       await supabase
         .from('combats')
-        .update({ log: JSON.stringify(opts.newLog), status: over === 'victory' ? 'finished' : 'defeat' })
+        .update({ log: JSON.stringify(opts.newLog) })
         .eq('id', combatId);
       await refetch();
-      setPhase('finished');
+      await closeCombat(over);
       return;
     }
 
@@ -279,9 +280,35 @@ export const CombatScreen = () => {
     }, 1600);
   };
 
+  const closeCombat = async (resultado: 'victory' | 'defeat') => {
+    if (!combat || !combatId) return;
+
+    if (combat.playthrough_id && combat.scene_id) {
+      await cerrarCombate(combat.playthrough_id, combat.scene_id, resultado, combatId);
+      navigate(`/campaign/${campaignId}/play/${combat.playthrough_id}`);
+    } else {
+      const statusToSet = resultado === 'victory' ? 'finished' : 'defeat';
+      await supabase
+        .from('combats')
+        .update({ status: statusToSet })
+        .eq('id', combatId);
+      navigate(`/campaign/${campaignId}`);
+    }
+  };
+
   const finish = async () => {
-    await supabase.from('combats').update({ status: 'finished' }).eq('id', combatId);
-    navigate(`/campaign/${campaignId}`);
+    const outcome = isCombatOver(participants);
+    if (outcome) {
+      await closeCombat(outcome);
+    } else {
+      if (!combat) return;
+      const statusToSet = 'finished';
+      await supabase
+        .from('combats')
+        .update({ status: statusToSet })
+        .eq('id', combatId);
+      navigate(`/campaign/${campaignId}`);
+    }
   };
 
   if (loading) return <div className="page-pad">Cargando combate...</div>;
