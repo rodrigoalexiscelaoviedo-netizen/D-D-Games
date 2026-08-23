@@ -281,6 +281,7 @@ export const PlaythroughScreen = () => {
         })),
       ];
 
+      console.log('PARTICIPANTS PAYLOAD:', JSON.stringify(participants, null, 2));
       const { data: participantsData, error: participantsError } = await supabase
         .from('combat_participants')
         .insert(participants)
