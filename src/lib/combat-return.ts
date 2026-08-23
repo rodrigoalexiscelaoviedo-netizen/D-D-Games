@@ -80,3 +80,35 @@ export async function cerrarCombate(
 
   return { leads_to_scene_id: option.leads_to_scene_id };
 }
+
+export async function cancelarCombate(
+  playthroughId: string,
+  sceneId: string,
+  combatId: string,
+): Promise<void> {
+  const { data: logRows, error: logError } = await supabase
+    .from('playthrough_log')
+    .insert({
+      playthrough_id: playthroughId,
+      scene_id: sceneId,
+      entry_type: 'note',
+      content: {
+        text: 'Combate cancelado',
+      },
+    })
+    .select();
+
+  if (logError || !logRows || logRows.length === 0) {
+    throw new Error('No se pudo registrar la cancelación del combate en el log');
+  }
+
+  const { data: combatUpdateRows, error: combatError } = await supabase
+    .from('combats')
+    .update({ status: 'cancelled' })
+    .eq('id', combatId)
+    .select();
+
+  if (combatError || !combatUpdateRows || combatUpdateRows.length === 0) {
+    throw new Error('No se pudo marcar el combate como cancelado');
+  }
+}

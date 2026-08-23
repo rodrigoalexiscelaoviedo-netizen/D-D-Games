@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import { cerrarCombate } from '../../lib/combat-return';
+import { cerrarCombate, cancelarCombate } from '../../lib/combat-return';
 import type { Playthrough, Scene, SceneOption } from '../../lib/adventure-types';
 import { toPlayerScene, toPlayerOption } from '../../lib/adventure-types';
 import { ScenePlayerView } from './ScenePlayerView';
@@ -31,6 +31,45 @@ export const PlaythroughScreen = () => {
       setIsPlayerView(true);
     }
   }, [viewStorageKey]);
+
+  useEffect(() => {
+    if (!playthrough || !scene || playthrough.status !== 'active') return;
+
+    const visibleOptions = options.filter((opt) => {
+      if (!opt.requires_flag) return true;
+      return playthrough.flags[opt.requires_flag] === true;
+    });
+
+    const isFinalScene = visibleOptions.length === 0 && scene.scene_type !== 'combate';
+
+    if (isFinalScene) {
+      (async () => {
+        try {
+          const { data: updatedRows, error: updateError } = await supabase
+            .from('playthroughs')
+            .update({
+              status: 'completed',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', playthroughId)
+            .select();
+
+          if (updateError || !updatedRows || updatedRows.length === 0) {
+            console.error('Error al auto-completar:', updateError);
+          }
+
+          if (updatedRows && updatedRows.length > 0) {
+            setPlaythrough({
+              ...playthrough,
+              status: 'completed',
+            });
+          }
+        } catch (error) {
+          console.error('Error en auto-completación:', error);
+        }
+      })();
+    }
+  }, [playthrough?.id, scene?.id, options.length]);
 
   useEffect(() => {
     (async () => {
@@ -367,6 +406,47 @@ export const PlaythroughScreen = () => {
     }
   };
 
+  const handleCancelCombat = async () => {
+    if (!playthrough || !scene || !playthroughId) return;
+
+    if (!window.confirm('¿Seguro que quieres cancelar el combate? No se registrará como un evento.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { data: combats, error: combatError } = await supabase
+        .from('combats')
+        .select('id')
+        .eq('playthrough_id', playthroughId)
+        .eq('scene_id', scene.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (combatError) {
+        console.error('Combat query error:', combatError);
+        throw new Error(`Error al buscar combate: ${combatError.message}`);
+      }
+      if (!combats || combats.length === 0) {
+        throw new Error('No hay combate activo en esta escena');
+      }
+
+      const combatId = combats[0].id;
+      await cancelarCombate(playthroughId, scene.id, combatId);
+
+      setPlaythrough({
+        ...playthrough,
+        current_scene_id: scene.id,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error desconocido';
+      alert(`Error al cancelar combate: ${message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGoToPreviousScene = async () => {
     if (!playthrough) return;
 
@@ -508,6 +588,7 @@ export const PlaythroughScreen = () => {
           onResolveCombatDefeat={
             scene.scene_type === 'combate' ? () => handleResolveCombatManually('derrota') : undefined
           }
+          onCancelCombat={scene.scene_type === 'combate' ? handleCancelCombat : undefined}
           isLoading={loading}
           sceneCount={sceneCount}
         />

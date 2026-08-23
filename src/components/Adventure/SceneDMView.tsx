@@ -10,6 +10,7 @@ interface Props {
   onInitiateCombat?: () => Promise<void>;
   onResolveCombatVictory?: () => Promise<void>;
   onResolveCombatDefeat?: () => Promise<void>;
+  onCancelCombat?: () => Promise<void>;
   isLoading?: boolean;
   sceneCount?: number;
 }
@@ -24,6 +25,7 @@ export const SceneDMView = ({
   onInitiateCombat,
   onResolveCombatVictory,
   onResolveCombatDefeat,
+  onCancelCombat,
   isLoading,
   sceneCount,
 }: Props) => {
@@ -74,7 +76,7 @@ export const SceneDMView = ({
                 Iniciar combate
               </button>
             )}
-            {(onResolveCombatVictory || onResolveCombatDefeat) && (
+            {(onResolveCombatVictory || onResolveCombatDefeat || onCancelCombat) && (
               <div className="combat-manual-resolution">
                 <p className="resolution-label">O resolver manualmente:</p>
                 <div className="resolution-buttons">
@@ -96,6 +98,16 @@ export const SceneDMView = ({
                       Resolver: Derrota
                     </button>
                   )}
+                  {onCancelCombat && (
+                    <button
+                      className="btn-secondary"
+                      onClick={onCancelCombat}
+                      disabled={isLoading}
+                      style={{ opacity: '0.7' }}
+                    >
+                      Cancelar combate
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -114,7 +126,6 @@ export const SceneDMView = ({
               >
                 <p className="option-label">{opt.player_label}</p>
                 {opt.dm_note && <p className="dm-note">DM: {opt.dm_note}</p>}
-                {opt.sets_flag && <p className="flag-set">Marca flag: {opt.sets_flag}</p>}
               </button>
             ))}
           </div>

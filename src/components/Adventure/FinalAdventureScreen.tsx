@@ -37,23 +37,6 @@ export const FinalAdventureScreen = ({
     })();
   }
 
-  const handleCompleteAdventure = async () => {
-    try {
-      const { error } = await supabase
-        .from('playthroughs')
-        .update({ status: 'completed' })
-        .eq('id', playthrough.id)
-        .select();
-
-      if (error) throw error;
-
-      // Refresh the page or trigger a re-render
-      window.location.reload();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Error desconocido';
-      alert(`Error al completar la aventura: ${message}`);
-    }
-  };
 
   const handleUndo = async () => {
     if (!onGoToPreviousScene) return;
@@ -123,16 +106,6 @@ export const FinalAdventureScreen = ({
       </div>
 
       <div className="final-actions">
-        {playthrough.status !== 'completed' && (
-          <button
-            className="btn-primary"
-            onClick={handleCompleteAdventure}
-            disabled={isLoading}
-          >
-            Marcar como Completada
-          </button>
-        )}
-
         {onGoToPreviousScene && (
           <button
             className="btn-secondary"
