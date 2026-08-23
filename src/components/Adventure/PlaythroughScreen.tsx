@@ -395,6 +395,7 @@ export const PlaythroughScreen = () => {
           ...playthrough,
           current_scene_id: result.leads_to_scene_id,
         });
+        setOptionsLoaded(false);
 
         const { data: nextOptions } = await supabase
           .from('scene_options')
@@ -403,6 +404,7 @@ export const PlaythroughScreen = () => {
           .order('option_order', { ascending: true });
 
         setOptions(nextOptions || []);
+        setOptionsLoaded(true);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
@@ -502,6 +504,7 @@ export const PlaythroughScreen = () => {
 
         setScene(previousScene);
         setPlaythrough({ ...playthrough, current_scene_id: previousSceneId });
+        setOptionsLoaded(false);
 
         const { data: prevOptions } = await supabase
           .from('scene_options')
@@ -510,6 +513,7 @@ export const PlaythroughScreen = () => {
           .order('option_order', { ascending: true });
 
         setOptions(prevOptions || []);
+        setOptionsLoaded(true);
       }
     } finally {
       setLoading(false);
