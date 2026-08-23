@@ -10,6 +10,7 @@ import { CharacterList } from './components/Character/CharacterList';
 import { CombatSetup } from './components/Combat/CombatSetup';
 import { CombatScreen } from './components/Combat/CombatScreen';
 import { CampaignWiki } from './components/Campaign/CampaignWiki';
+import { PlaythroughScreen } from './components/Adventure/PlaythroughScreen';
 
 export default function App() {
   return (
@@ -86,6 +87,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <CampaignWiki />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/campaign/:campaignId/play/:playthroughId"
+          element={
+            <ProtectedRoute>
+              <PlaythroughScreen />
             </ProtectedRoute>
           }
         />
