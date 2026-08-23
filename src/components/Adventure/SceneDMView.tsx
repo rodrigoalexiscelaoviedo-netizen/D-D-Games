@@ -120,7 +120,7 @@ export const SceneDMView = ({
             {options.map((opt) => (
               <button
                 key={opt.id}
-                className="option-card clickable"
+                className={`option-card clickable ${options.length === 1 ? 'single' : ''}`}
                 onClick={() => onSelectOption?.(opt.id)}
                 disabled={isLoading}
               >
