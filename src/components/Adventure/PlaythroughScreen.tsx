@@ -179,6 +179,69 @@ export const PlaythroughScreen = () => {
     return <div className="page-pad">Cargando aventura...</div>;
   }
 
+  const handleGoToPreviousScene = async () => {
+    if (!playthrough) return;
+
+    try {
+      setLoading(true);
+
+      const { data: lastLog, error: logReadError } = await supabase
+        .from('playthrough_log')
+        .select('*')
+        .eq('playthrough_id', playthroughId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (logReadError) throw logReadError;
+      if (!lastLog || lastLog.length === 0) {
+        throw new Error('No hay escenas anteriores');
+      }
+
+      const previousSceneId = lastLog[0].scene_id;
+      if (!previousSceneId) {
+        throw new Error('Entrada de log sin scene_id');
+      }
+
+      const { data: deletedRows, error: deleteError } = await supabase
+        .from('playthrough_log')
+        .delete()
+        .eq('id', lastLog[0].id)
+        .select();
+
+      if (deleteError) throw deleteError;
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error('No se pudo borrar la entrada del log');
+      }
+
+      const { data: previousScene } = await supabase
+        .from('scenes')
+        .select('*')
+        .eq('id', previousSceneId)
+        .single();
+
+      if (previousScene) {
+        await supabase
+          .from('playthroughs')
+          .update({ current_scene_id: previousSceneId })
+          .eq('id', playthroughId)
+          .select();
+
+        setScene(previousScene);
+        setPlaythrough({ ...playthrough, current_scene_id: previousSceneId });
+
+        const { data: prevOptions } = await supabase
+          .from('scene_options')
+          .select('*')
+          .eq('scene_id', previousSceneId)
+          .order('option_order', { ascending: true });
+
+        setOptions(prevOptions || []);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const visibleOptions = options.filter((opt) => {
     if (!opt.requires_flag) return true;
     return playthrough.flags[opt.requires_flag] === true;
@@ -237,7 +300,13 @@ export const PlaythroughScreen = () => {
           isLoading={loading}
         />
       ) : (
-        <SceneDMView scene={scene} options={visibleOptions} hiddenOptions={hiddenOptions} />
+        <SceneDMView
+          scene={scene}
+          options={visibleOptions}
+          hiddenOptions={hiddenOptions}
+          onGoToPreviousScene={handleGoToPreviousScene}
+          isLoading={loading}
+        />
       )}
     </div>
   );

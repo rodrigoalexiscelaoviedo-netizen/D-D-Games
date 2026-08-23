@@ -4,9 +4,11 @@ interface Props {
   scene: Scene;
   options: SceneOption[];
   hiddenOptions: SceneOption[];
+  onGoToPreviousScene?: () => Promise<void>;
+  isLoading?: boolean;
 }
 
-export const SceneDMView = ({ scene, options, hiddenOptions }: Props) => {
+export const SceneDMView = ({ scene, options, hiddenOptions, onGoToPreviousScene, isLoading }: Props) => {
   return (
     <div className="scene-dm">
       <div className="scene-content">
@@ -66,6 +68,19 @@ export const SceneDMView = ({ scene, options, hiddenOptions }: Props) => {
                 <p className="blocked-reason">Requiere: {opt.requires_flag}</p>
               </div>
             ))}
+          </div>
+        )}
+
+        {onGoToPreviousScene && (
+          <div className="previous-scene-section">
+            <button
+              className="btn-secondary"
+              onClick={onGoToPreviousScene}
+              disabled={isLoading}
+            >
+              ← Escena anterior
+            </button>
+            <p className="no-undo-note">No deshace flags</p>
           </div>
         )}
       </div>

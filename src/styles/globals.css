@@ -967,6 +967,8 @@ textarea.input-field {
 .blocked-reason { margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--wine-bright); }
 .combat-section { background: var(--bg-surface-2); padding: 1.5rem; border-radius: var(--radius); border-left: 3px solid var(--wine-bright); text-align: center; }
 .combat-label { color: var(--wine-bright); font-weight: 600; margin-bottom: 1rem; }
+.previous-scene-section { background: var(--bg-surface-2); padding: 1rem; border-radius: var(--radius); border-left: 3px solid var(--ink-muted); }
+.no-undo-note { font-size: 0.75rem; color: var(--ink-muted); margin: 0.5rem 0 0; font-style: italic; }
 
 .modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 .modal-content { background: var(--bg-surface); border: 1px solid var(--border-gold); border-radius: var(--radius); padding: 2rem; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
