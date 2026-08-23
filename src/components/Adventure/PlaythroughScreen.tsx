@@ -257,30 +257,45 @@ export const PlaythroughScreen = () => {
       }
 
       const participants = [
-        ...Array.from({ length: count }).map(() => ({
+        ...Array.from({ length: count }).map((_, i) => ({
           combat_id: combat.id,
-          entity_type: 'enemy',
-          entity_id: enemy.id,
-          name: enemy.name,
-          hp: enemy.hp || 10,
-          ac: enemy.ac || 12,
+          character_id: null,
+          name: count > 1 ? `${enemy.name} ${i + 1}` : enemy.name,
+          is_player: false,
+          hp_current: enemy.hp,
+          hp_max: enemy.hp,
+          armor_class: enemy.armor_class,
+          dexterity: enemy.dexterity,
+          damage_dice: enemy.damage_dice,
+          attack_bonus: enemy.attack_bonus,
         })),
         ...characters.map((char) => ({
           combat_id: combat.id,
-          entity_type: 'character',
-          entity_id: char.id,
-          name: char.name,
-          hp: char.hit_points || 10,
-          ac: char.armor_class || 10,
+          character_id: char.id,
+          name: char.character_name,
+          is_player: true,
+          hp_current: char.hp_current,
+          hp_max: char.hp_max,
+          armor_class: char.armor_class,
+          dexterity: char.dex,
         })),
       ];
 
-      const { error: participantsError } = await supabase
+      const { data: participantsData, error: participantsError } = await supabase
         .from('combat_participants')
         .insert(participants)
         .select();
 
       if (participantsError) {
+        console.error('Combat participants insert error:', participantsError);
+        // Delete the combat row if participants insert fails
+        await supabase.from('combats').delete().eq('id', combat.id);
+        throw new Error(`Error al crear participantes del combate: ${participantsError.message}`);
+      }
+      if (!participantsData || participantsData.length === 0) {
+        console.warn('Combat participants insert returned empty');
+        // Delete the combat row if no participants were created
+        await supabase.from('combats').delete().eq('id', combat.id);
         throw new Error('No se pudieron crear los participantes del combate');
       }
 
