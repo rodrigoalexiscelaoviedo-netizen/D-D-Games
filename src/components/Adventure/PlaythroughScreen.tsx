@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
 import type { Playthrough, Scene, SceneOption } from '../../lib/adventure-types';
 import { toPlayerScene, toPlayerOption } from '../../lib/adventure-types';
 import { ScenePlayerView } from './ScenePlayerView';
@@ -9,6 +10,7 @@ import { SceneDMView } from './SceneDMView';
 export const PlaythroughScreen = () => {
   const { campaignId, playthroughId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [playthrough, setPlaythrough] = useState<Playthrough | null>(null);
   const [scene, setScene] = useState<Scene | null>(null);
@@ -115,27 +117,40 @@ export const PlaythroughScreen = () => {
         ? { ...playthrough.flags, [selectedOption.sets_flag]: true }
         : playthrough.flags;
 
-      const { error: updateError } = await supabase
+      const { data: updatedRows, error: updateError } = await supabase
         .from('playthroughs')
         .update({
           flags: newFlags,
           current_scene_id: selectedOption.leads_to_scene_id,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', playthroughId);
+        .eq('id', playthroughId)
+        .select();
 
       if (updateError) throw updateError;
+      if (!updatedRows || updatedRows.length === 0) {
+        throw new Error('UPDATE no afectó ninguna fila — verificar sesión o RLS');
+      }
 
-      await supabase.from('playthrough_log').insert({
-        playthrough_id: playthroughId,
-        event_type: 'option_selected',
-        event_data: {
-          option_id: optionId,
-          option_label: selectedOption.player_label,
+      const { data: logRows, error: logError } = await supabase
+        .from('playthrough_log')
+        .insert({
+          playthrough_id: playthroughId,
           scene_id: scene.id,
-          sets_flag: selectedOption.sets_flag,
-        },
-      });
+          entry_type: 'option_selected',
+          content: {
+            option_id: optionId,
+            option_label: selectedOption.player_label,
+            sets_flag: selectedOption.sets_flag,
+            leads_to_scene_id: selectedOption.leads_to_scene_id,
+          },
+        })
+        .select();
+
+      if (logError) throw logError;
+      if (!logRows || logRows.length === 0) {
+        throw new Error('INSERT a playthrough_log no afectó filas');
+      }
 
       const { data: nextScene } = await supabase
         .from('scenes')
@@ -181,16 +196,21 @@ export const PlaythroughScreen = () => {
           ← Campaña
         </button>
         <h1>{scene.title || `Escena ${scene.scene_order}`}</h1>
-        {!isPlayerView && (
-          <button className="btn-primary" onClick={handleShowToPlayers}>
-            Mostrar a los jugadores
-          </button>
-        )}
-        {isPlayerView && (
-          <button className="btn-secondary" onClick={() => setShowConfirm(true)}>
-            Volver a DM
-          </button>
-        )}
+        <div className="header-right">
+          {!isPlayerView && user && (
+            <span className="session-email">{user.email}</span>
+          )}
+          {!isPlayerView && (
+            <button className="btn-primary" onClick={handleShowToPlayers}>
+              Mostrar a los jugadores
+            </button>
+          )}
+          {isPlayerView && (
+            <button className="btn-secondary" onClick={() => setShowConfirm(true)}>
+              Volver a DM
+            </button>
+          )}
+        </div>
       </header>
 
       {showConfirm && (
