@@ -18,6 +18,8 @@ export const PlaythroughScreen = () => {
   const [loading, setLoading] = useState(true);
   const [isPlayerView, setIsPlayerView] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [hasPreviousScene, setHasPreviousScene] = useState(false);
+  const [sceneCount, setSceneCount] = useState(0);
 
   const viewStorageKey = `dnd_view_${playthroughId}`;
 
@@ -86,6 +88,20 @@ export const PlaythroughScreen = () => {
           setOptions(optionsData || []);
         }
       }
+
+      const { count: logCount } = await supabase
+        .from('playthrough_log')
+        .select('*', { count: 'exact', head: true })
+        .eq('playthrough_id', playthroughId);
+
+      setHasPreviousScene((logCount ?? 0) > 0);
+
+      const { count: totalScenes } = await supabase
+        .from('scenes')
+        .select('*', { count: 'exact', head: true })
+        .eq('adventure_id', pt.adventure_id);
+
+      setSceneCount(totalScenes || 0);
 
       setLoading(false);
     })();
@@ -305,7 +321,9 @@ export const PlaythroughScreen = () => {
           options={visibleOptions}
           hiddenOptions={hiddenOptions}
           onGoToPreviousScene={handleGoToPreviousScene}
+          canGoToPreviousScene={hasPreviousScene}
           isLoading={loading}
+          sceneCount={sceneCount}
         />
       )}
     </div>

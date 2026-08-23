@@ -5,12 +5,28 @@ interface Props {
   options: SceneOption[];
   hiddenOptions: SceneOption[];
   onGoToPreviousScene?: () => Promise<void>;
+  canGoToPreviousScene?: boolean;
   isLoading?: boolean;
+  sceneCount?: number;
 }
 
-export const SceneDMView = ({ scene, options, hiddenOptions, onGoToPreviousScene, isLoading }: Props) => {
+export const SceneDMView = ({
+  scene,
+  options,
+  hiddenOptions,
+  onGoToPreviousScene,
+  canGoToPreviousScene,
+  isLoading,
+  sceneCount,
+}: Props) => {
   return (
     <div className="scene-dm">
+      {sceneCount && sceneCount > 0 && (
+        <div className="scene-progress">
+          Escena {scene.scene_order} de {sceneCount} · {scene.title} · {scene.scene_type}
+        </div>
+      )}
+
       <div className="scene-content">
         <div className="dm-text">
           <strong>Vista DM:</strong>
@@ -76,7 +92,7 @@ export const SceneDMView = ({ scene, options, hiddenOptions, onGoToPreviousScene
             <button
               className="btn-secondary"
               onClick={onGoToPreviousScene}
-              disabled={isLoading}
+              disabled={isLoading || !canGoToPreviousScene}
             >
               ← Escena anterior
             </button>
