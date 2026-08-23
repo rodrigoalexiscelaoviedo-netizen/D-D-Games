@@ -498,6 +498,7 @@ export const PlaythroughScreen = () => {
           scene={scene}
           options={visibleOptions}
           hiddenOptions={hiddenOptions}
+          onSelectOption={handleSelectOption}
           onGoToPreviousScene={handleGoToPreviousScene}
           canGoToPreviousScene={hasPreviousScene}
           onInitiateCombat={scene.scene_type === 'combate' ? handleInitiateCombat : undefined}

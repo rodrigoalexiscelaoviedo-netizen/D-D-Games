@@ -4,6 +4,7 @@ interface Props {
   scene: Scene;
   options: SceneOption[];
   hiddenOptions: SceneOption[];
+  onSelectOption?: (optionId: string) => void | Promise<void>;
   onGoToPreviousScene?: () => Promise<void>;
   canGoToPreviousScene?: boolean;
   onInitiateCombat?: () => Promise<void>;
@@ -17,6 +18,7 @@ export const SceneDMView = ({
   scene,
   options,
   hiddenOptions,
+  onSelectOption,
   onGoToPreviousScene,
   canGoToPreviousScene,
   onInitiateCombat,
@@ -104,11 +106,16 @@ export const SceneDMView = ({
           <div className="visible-options">
             <h3>Opciones disponibles</h3>
             {options.map((opt) => (
-              <div key={opt.id} className="option-card">
+              <button
+                key={opt.id}
+                className="option-card clickable"
+                onClick={() => onSelectOption?.(opt.id)}
+                disabled={isLoading}
+              >
                 <p className="option-label">{opt.player_label}</p>
                 {opt.dm_note && <p className="dm-note">DM: {opt.dm_note}</p>}
                 {opt.sets_flag && <p className="flag-set">Marca flag: {opt.sets_flag}</p>}
-              </div>
+              </button>
             ))}
           </div>
         )}

@@ -961,7 +961,10 @@ textarea.input-field {
 .option-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .final-text { text-align: center; color: var(--ink-muted); font-style: italic; padding: 2rem 1rem; }
 
-.option-card { background: var(--bg-surface-2); padding: 1rem; border-radius: var(--radius); border-left: 3px solid var(--border-gold); }
+.option-card { background: var(--bg-surface-2); padding: 1rem; border-radius: var(--radius); border-left: 3px solid var(--border-gold); text-align: left; }
+.option-card.clickable { cursor: pointer; border: 2px solid var(--border-gold); transition: all 0.2s ease; }
+.option-card.clickable:hover:not(:disabled) { border-color: var(--gold); background: var(--bg-surface); box-shadow: 0 2px 8px rgba(201,162,75,0.15); }
+.option-card.clickable:disabled { opacity: 0.5; cursor: not-allowed; }
 .option-card.blocked { opacity: 0.5; }
 .option-label { margin: 0 0 0.25rem; font-weight: 600; }
 .dm-note { margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--ink-muted); font-style: italic; }
