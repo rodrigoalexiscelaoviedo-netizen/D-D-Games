@@ -6,18 +6,20 @@ export const useAuth = () => {
   const store = useAuthStore();
 
   useEffect(() => {
-    (async () => {
-      await store.checkAuth();
-    })();
+    const initAuth = async () => {
+      await useAuthStore.getState().checkAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      store.setUser(session?.user || null);
-    });
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        useAuthStore.getState().setUser(session?.user || null);
+      });
 
-    return () => {
-      subscription?.unsubscribe();
+      return () => {
+        subscription?.unsubscribe();
+      };
     };
-  }, [store]);
+
+    initAuth();
+  }, []);
 
   return store;
 };
