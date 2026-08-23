@@ -15,8 +15,7 @@ export const PlaythroughScreen = () => {
   const [options, setOptions] = useState<SceneOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPlayerView, setIsPlayerView] = useState(false);
-  const [holdTimeout, setHoldTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
-  const [isHolding, setIsHolding] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const viewStorageKey = `dnd_view_${playthroughId}`;
 
@@ -94,25 +93,7 @@ export const PlaythroughScreen = () => {
     const newView = !isPlayerView;
     setIsPlayerView(newView);
     localStorage.setItem(viewStorageKey, newView ? 'player' : 'dm');
-  };
-
-  const handleHeaderHoldStart = () => {
-    setIsHolding(true);
-    const timeout = setTimeout(() => {
-      if (isPlayerView) {
-        toggleView();
-        setIsHolding(false);
-      }
-    }, 1000);
-    setHoldTimeout(timeout);
-  };
-
-  const handleHeaderHoldEnd = () => {
-    if (holdTimeout) {
-      clearTimeout(holdTimeout);
-      setHoldTimeout(null);
-    }
-    setIsHolding(false);
+    setShowConfirm(false);
   };
 
   const handleShowToPlayers = () => {
@@ -137,14 +118,7 @@ export const PlaythroughScreen = () => {
 
   return (
     <div className={`playthrough ${isPlayerView ? 'player-view' : 'dm-view'}`}>
-      <header
-        className={`playthrough-header ${isHolding && isPlayerView ? 'holding' : ''}`}
-        onMouseDown={handleHeaderHoldStart}
-        onMouseUp={handleHeaderHoldEnd}
-        onMouseLeave={handleHeaderHoldEnd}
-        onTouchStart={handleHeaderHoldStart}
-        onTouchEnd={handleHeaderHoldEnd}
-      >
+      <header className="playthrough-header">
         <button className="btn-secondary" onClick={() => navigate(`/campaign/${campaignId}`)}>
           ← Campaña
         </button>
@@ -154,8 +128,28 @@ export const PlaythroughScreen = () => {
             Mostrar a los jugadores
           </button>
         )}
-        {isPlayerView && isHolding && <div className="hold-indicator">Sosteniendo...</div>}
+        {isPlayerView && (
+          <button className="btn-secondary" onClick={() => setShowConfirm(true)}>
+            Volver a DM
+          </button>
+        )}
       </header>
+
+      {showConfirm && (
+        <div className="modal-backdrop" onClick={() => setShowConfirm(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <p>¿Volver a vista DM? Los jugadores verían información oculta.</p>
+            <div className="modal-buttons">
+              <button className="btn-secondary" onClick={() => setShowConfirm(false)}>
+                Cancelar
+              </button>
+              <button className="btn-primary" onClick={toggleView}>
+                Volver a DM
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isPlayerView ? (
         <ScenePlayerView scene={toPlayerScene(scene)} options={visibleOptions.map(toPlayerOption)} />

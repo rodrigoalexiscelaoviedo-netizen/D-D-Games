@@ -933,11 +933,9 @@ textarea.input-field {
 /* ===== PLAYTHROUGH ===== */
 .playthrough { max-width: 800px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
 .playthrough.player-view { background: rgba(201, 162, 75, 0.04); }
-.playthrough-header { display: flex; gap: 1rem; align-items: center; padding: 1rem; border-bottom: 2px solid var(--border-gold); transition: all 0.15s ease; }
-.playthrough-header.holding { background: rgba(201,162,75,0.12); border-bottom-color: var(--gold); }
+.playthrough-header { display: flex; gap: 1rem; align-items: center; padding: 1rem; border-bottom: 2px solid var(--border-gold); }
 .playthrough-header h1 { flex: 1; margin: 0; }
 .playthrough-header button { flex-shrink: 0; }
-.hold-indicator { font-size: 0.75rem; color: var(--gold); font-style: italic; }
 
 .scene-player, .scene-dm { flex: 1; padding: 2rem 1rem; display: flex; flex-direction: column; gap: 2rem; }
 .scene-content { flex: 1; }
@@ -963,6 +961,12 @@ textarea.input-field {
 .dm-note { margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--ink-muted); font-style: italic; }
 .flag-set { margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--gold); }
 .blocked-reason { margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--wine-bright); }
+
+.modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-content { background: var(--bg-surface); border: 1px solid var(--border-gold); border-radius: var(--radius); padding: 2rem; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+.modal-content p { margin: 0 0 1.5rem; color: var(--ink); font-size: 1rem; line-height: 1.6; }
+.modal-buttons { display: flex; gap: 1rem; }
+.modal-buttons button { flex: 1; }
 
 @media (max-width: 640px) {
   .avatar-grid { grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); }
