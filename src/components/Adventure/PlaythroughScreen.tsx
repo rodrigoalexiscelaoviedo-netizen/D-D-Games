@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import { cerrarCombate, cancelarCombate } from '../../lib/combat-return';
+import { cerrarCombate, cancelarCombate, resolverCombateSinCombate } from '../../lib/combat-return';
 import type { Playthrough, Scene, SceneOption } from '../../lib/adventure-types';
 import { toPlayerScene, toPlayerOption } from '../../lib/adventure-types';
 import { ScenePlayerView } from './ScenePlayerView';
@@ -371,16 +371,19 @@ export const PlaythroughScreen = () => {
         console.error('Combat query error:', combatError);
         throw new Error(`Error al buscar combate: ${combatError.message}`);
       }
-      if (!combats || combats.length === 0) {
-        throw new Error('No hay combate activo en esta escena');
+
+      let result;
+      const resultadoEnglish = resultado === 'victoria' ? 'victory' : 'defeat';
+
+      if (combats && combats.length > 0) {
+        const combatId = combats[0].id;
+        result = await cerrarCombate(playthroughId, scene.id, resultadoEnglish, combatId);
+      } else {
+        result = await resolverCombateSinCombate(playthroughId, scene.id, resultadoEnglish);
       }
 
-      const combatId = combats[0].id;
-      const resultadoEnglish = resultado === 'victoria' ? 'victory' : 'defeat';
-      const result = await cerrarCombate(playthroughId, scene.id, resultadoEnglish, combatId);
-
       if (!result.leads_to_scene_id) {
-        throw new Error('Combate cerrado pero sin destino de escena');
+        throw new Error('Error al resolver combate: sin destino de escena');
       }
 
       const { data: nextScene } = await supabase
