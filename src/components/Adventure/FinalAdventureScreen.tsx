@@ -23,6 +23,7 @@ export const FinalAdventureScreen = ({
 }: Props) => {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [logLoading, setLogLoading] = useState(true);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   if (logLoading) {
     (async () => {
@@ -42,14 +43,18 @@ export const FinalAdventureScreen = ({
     if (!onGoToPreviousScene) return;
 
     try {
-      // Revert status to active
-      await supabase
+      const { data: updatedRows, error: updateError } = await supabase
         .from('playthroughs')
         .update({ status: 'active' })
         .eq('id', playthrough.id)
         .select();
 
-      // Call the undo handler
+      if (updateError) throw updateError;
+      if (!updatedRows || updatedRows.length === 0) {
+        throw new Error('No se pudo revertir el estado de la partida');
+      }
+
+      setShowConfirm(false);
       await onGoToPreviousScene();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
@@ -109,13 +114,29 @@ export const FinalAdventureScreen = ({
         {onGoToPreviousScene && (
           <button
             className="btn-secondary"
-            onClick={handleUndo}
+            onClick={() => setShowConfirm(true)}
             disabled={isLoading || log.length === 0}
           >
-            ← Revertir al anterior evento
+            ← Volver a la escena anterior
           </button>
         )}
       </div>
+
+      {showConfirm && (
+        <div className="modal-backdrop" onClick={() => setShowConfirm(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <p>La partida vuelve a estar activa y volvés a la escena anterior. ¿Continuar?</p>
+            <div className="modal-buttons">
+              <button className="btn-secondary" onClick={() => setShowConfirm(false)}>
+                Cancelar
+              </button>
+              <button className="btn-primary" onClick={handleUndo}>
+                Volver a la escena anterior
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
