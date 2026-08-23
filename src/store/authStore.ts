@@ -8,6 +8,8 @@ interface AuthState {
   signup: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  setUser: (user: any | null) => void;
+  setLoading: (loading: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -15,9 +17,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   loading: true,
 
   checkAuth: async () => {
-    const { data } = await supabase.auth.getUser();
-    set({ user: data.user, loading: false });
+    const { data } = await supabase.auth.getSession();
+    set({ user: data.session?.user || null, loading: false });
   },
+
+  setUser: (user) => set({ user }),
+  setLoading: (loading) => set({ loading }),
 
   login: async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({
