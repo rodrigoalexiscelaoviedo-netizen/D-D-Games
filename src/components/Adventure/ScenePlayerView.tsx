@@ -1,8 +1,8 @@
-import type { Scene, SceneOption } from '../../lib/adventure-types';
+import type { PlayerSceneData, PlayerOptionData } from '../../lib/adventure-types';
 
 interface Props {
-  scene: Scene;
-  options: SceneOption[];
+  scene: PlayerSceneData;
+  options: PlayerOptionData[];
 }
 
 export const ScenePlayerView = ({ scene, options }: Props) => {
@@ -10,9 +10,6 @@ export const ScenePlayerView = ({ scene, options }: Props) => {
     <div className="scene-player">
       <div className="scene-content">
         {scene.player_text && <div className="scene-text">{scene.player_text}</div>}
-        {!scene.player_text && scene.dm_text && (
-          <div className="scene-text">{scene.dm_text}</div>
-        )}
       </div>
 
       {options.length > 0 && (

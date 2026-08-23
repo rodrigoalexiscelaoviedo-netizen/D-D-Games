@@ -52,3 +52,27 @@ export interface PlaythroughLogEntry {
   event_data: any;
   created_at: string;
 }
+
+export interface PlayerSceneData {
+  title?: string;
+  player_text?: string;
+}
+
+export interface PlayerOptionData {
+  id: string;
+  player_label: string;
+}
+
+export function toPlayerScene(scene: Scene): PlayerSceneData {
+  return {
+    title: scene.title,
+    player_text: scene.player_text,
+  };
+}
+
+export function toPlayerOption(option: SceneOption): PlayerOptionData {
+  return {
+    id: option.id,
+    player_label: option.player_label,
+  };
+}

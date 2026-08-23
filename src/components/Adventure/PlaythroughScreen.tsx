@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import type { Playthrough, Scene, SceneOption } from '../../lib/adventure-types';
+import { toPlayerScene, toPlayerOption } from '../../lib/adventure-types';
 import { ScenePlayerView } from './ScenePlayerView';
 import { SceneDMView } from './SceneDMView';
 
@@ -15,6 +16,7 @@ export const PlaythroughScreen = () => {
   const [loading, setLoading] = useState(true);
   const [isPlayerView, setIsPlayerView] = useState(false);
   const [holdTimeout, setHoldTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [isHolding, setIsHolding] = useState(false);
 
   const viewStorageKey = `dnd_view_${playthroughId}`;
 
@@ -95,9 +97,11 @@ export const PlaythroughScreen = () => {
   };
 
   const handleHeaderHoldStart = () => {
+    setIsHolding(true);
     const timeout = setTimeout(() => {
       if (isPlayerView) {
         toggleView();
+        setIsHolding(false);
       }
     }, 1000);
     setHoldTimeout(timeout);
@@ -108,6 +112,7 @@ export const PlaythroughScreen = () => {
       clearTimeout(holdTimeout);
       setHoldTimeout(null);
     }
+    setIsHolding(false);
   };
 
   const handleShowToPlayers = () => {
@@ -133,7 +138,7 @@ export const PlaythroughScreen = () => {
   return (
     <div className={`playthrough ${isPlayerView ? 'player-view' : 'dm-view'}`}>
       <header
-        className="playthrough-header"
+        className={`playthrough-header ${isHolding && isPlayerView ? 'holding' : ''}`}
         onMouseDown={handleHeaderHoldStart}
         onMouseUp={handleHeaderHoldEnd}
         onMouseLeave={handleHeaderHoldEnd}
@@ -149,10 +154,11 @@ export const PlaythroughScreen = () => {
             Mostrar a los jugadores
           </button>
         )}
+        {isPlayerView && isHolding && <div className="hold-indicator">Sosteniendo...</div>}
       </header>
 
       {isPlayerView ? (
-        <ScenePlayerView scene={scene} options={visibleOptions} />
+        <ScenePlayerView scene={toPlayerScene(scene)} options={visibleOptions.map(toPlayerOption)} />
       ) : (
         <SceneDMView scene={scene} options={visibleOptions} hiddenOptions={hiddenOptions} />
       )}

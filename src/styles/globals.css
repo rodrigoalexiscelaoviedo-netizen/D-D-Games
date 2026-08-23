@@ -933,9 +933,11 @@ textarea.input-field {
 /* ===== PLAYTHROUGH ===== */
 .playthrough { max-width: 800px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
 .playthrough.player-view { background: rgba(201, 162, 75, 0.04); }
-.playthrough-header { display: flex; gap: 1rem; align-items: center; padding: 1rem; border-bottom: 2px solid var(--border-gold); }
+.playthrough-header { display: flex; gap: 1rem; align-items: center; padding: 1rem; border-bottom: 2px solid var(--border-gold); transition: all 0.15s ease; }
+.playthrough-header.holding { background: rgba(201,162,75,0.12); border-bottom-color: var(--gold); }
 .playthrough-header h1 { flex: 1; margin: 0; }
 .playthrough-header button { flex-shrink: 0; }
+.hold-indicator { font-size: 0.75rem; color: var(--gold); font-style: italic; }
 
 .scene-player, .scene-dm { flex: 1; padding: 2rem 1rem; display: flex; flex-direction: column; gap: 2rem; }
 .scene-content { flex: 1; }
