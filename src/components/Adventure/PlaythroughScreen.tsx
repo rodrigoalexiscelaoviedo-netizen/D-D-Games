@@ -229,6 +229,7 @@ export const PlaythroughScreen = () => {
       if (nextScene) {
         setScene(nextScene);
         setPlaythrough({ ...playthrough, flags: newFlags, current_scene_id: nextScene.id });
+        setOptionsLoaded(false);
 
         const { data: nextOptions } = await supabase
           .from('scene_options')
@@ -237,6 +238,7 @@ export const PlaythroughScreen = () => {
           .order('option_order', { ascending: true });
 
         setOptions(nextOptions || []);
+        setOptionsLoaded(true);
       }
     } finally {
       setLoading(false);
