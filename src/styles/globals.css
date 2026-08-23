@@ -982,6 +982,47 @@ textarea.input-field {
 
 .modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 .modal-content { background: var(--bg-surface); border: 1px solid var(--border-gold); border-radius: var(--radius); padding: 2rem; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+
+.bestiario-screen { max-width: 1200px; }
+.bestiario-controls { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; align-items: flex-end; }
+.search-input { flex: 1; min-width: 200px; padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-surface-2); color: var(--ink); font-size: 0.95rem; }
+.filter-group { display: flex; flex-direction: column; gap: 0.25rem; }
+.filter-group label { font-size: 0.8rem; color: var(--ink-muted); font-weight: 600; }
+.filter-group select, .cr-inputs input { padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-surface-2); color: var(--ink); font-size: 0.9rem; }
+.cr-inputs { display: flex; gap: 0.5rem; align-items: center; }
+.cr-inputs input { width: 60px; }
+.bestiario-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+.monster-card { background: var(--bg-surface-2); border-radius: var(--radius); overflow: hidden; border-left: 3px solid var(--border-gold); display: flex; flex-direction: column; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.monster-card:hover { transform: translateY(-4px); box-shadow: 0 4px 16px rgba(201,162,75,0.2); }
+.monster-card.srd { border-left-color: var(--ink-muted); opacity: 0.9; }
+.monster-card.personal { border-left-color: var(--gold); }
+.monster-portrait { width: 100%; height: 180px; object-fit: cover; background: var(--bg-surface); }
+.monster-info { padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; flex: 1; }
+.monster-info h3 { margin: 0; font-size: 1.1rem; color: var(--ink); }
+.monster-cr { margin: 0; font-size: 0.9rem; font-weight: 600; color: var(--gold); }
+.monster-source { margin: 0; font-size: 0.75rem; color: var(--ink-muted); font-style: italic; }
+.monster-stats { display: flex; gap: 0.75rem; font-size: 0.85rem; }
+.monster-stats span { padding: 0.25rem 0.5rem; background: var(--bg-surface); border-radius: 3px; border-left: 2px solid var(--border-gold); }
+.monster-description { margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--ink-muted); line-height: 1.4; flex: 1; }
+.monster-actions { display: flex; gap: 0.5rem; margin-top: auto; }
+.btn-small { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+.btn-danger { background: var(--wine-bright); border: 1px solid var(--wine-bright); }
+.btn-danger:hover:not(:disabled) { background: var(--wine-dark); border-color: var(--wine-dark); }
+.empty-state { text-align: center; color: var(--ink-muted); padding: 2rem; }
+
+.encounter-prep { background: var(--bg-surface-2); padding: 1.5rem; border-radius: var(--radius); border-left: 3px solid var(--gold); margin-bottom: 1.5rem; }
+.encounter-prep h3 { margin: 0 0 1rem; color: var(--gold); }
+.encounter-list { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem; }
+.encounter-entry { background: var(--bg-surface); padding: 1rem; border-radius: var(--radius); border-left: 2px solid var(--border-gold); }
+.encounter-name { font-weight: 600; margin-bottom: 0.5rem; }
+.encounter-cr { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+.cr-badge { display: inline-block; background: var(--gold); color: var(--bg-surface); padding: 0.25rem 0.6rem; border-radius: 3px; font-weight: 600; font-size: 0.85rem; }
+.cr-note { font-size: 0.85rem; color: var(--ink-muted); font-style: italic; flex: 1; }
+.encounter-note { margin: 0.5rem 0 0; font-size: 0.8rem; color: var(--ink-muted); }
+.encounter-reference { background: var(--bg-surface); padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem; }
+.reference-label { font-size: 0.85rem; color: var(--ink-muted); margin: 0 0 0.5rem; font-weight: 600; }
+.reference-list { margin: 0; padding-left: 1.5rem; font-size: 0.8rem; color: var(--ink-muted); }
+.reference-list li { margin-bottom: 0.25rem; }
 .modal-content p { margin: 0 0 1.5rem; color: var(--ink); font-size: 1rem; line-height: 1.6; }
 .modal-buttons { display: flex; gap: 1rem; }
 .modal-buttons button { flex: 1; }

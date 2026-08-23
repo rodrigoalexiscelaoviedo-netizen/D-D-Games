@@ -258,19 +258,23 @@ export const PlaythroughScreen = () => {
       const bestiary_name = scene.encounter.bestiary_name;
       const count = scene.encounter.count;
 
-      const { data: enemy, error: besteryError } = await supabase
+      const { data: enemies, error: besteryError } = await supabase
         .from('bestiary')
         .select('*')
-        .ilike('name', bestiary_name)
-        .single();
+        .eq('name', bestiary_name);
 
       if (besteryError) {
         console.error('Bestiary query error:', besteryError);
         throw new Error(`Error al buscar enemigo: ${besteryError.message}`);
       }
-      if (!enemy) {
+      if (!enemies || enemies.length === 0) {
         throw new Error(`Enemigo no encontrado en el bestiario: ${bestiary_name}`);
       }
+      if (enemies.length > 1) {
+        throw new Error(`Múltiples monstruos con nombre "${bestiary_name}" — especificar en la aventura`);
+      }
+
+      const enemy = enemies[0];
 
       console.log('handleInitiateCombat - campaign_id:', playthrough.campaign_id);
       const { data: characters, error: charError } = await supabase

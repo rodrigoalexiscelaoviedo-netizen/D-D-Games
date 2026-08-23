@@ -1,3 +1,4 @@
+import { EncounterPrepView } from '../Combat/EncounterPrepView';
 import type { Scene, SceneOption } from '../../lib/adventure-types';
 
 interface Props {
@@ -65,17 +66,12 @@ export const SceneDMView = ({
 
       <div className="scene-options">
         {scene.scene_type === 'combate' && (
-          <div className="combat-section">
-            <p className="combat-label">Escena de combate</p>
-            {onInitiateCombat && (
-              <button
-                className="btn-primary"
-                onClick={onInitiateCombat}
-                disabled={isLoading}
-              >
-                Iniciar combate
-              </button>
-            )}
+          <>
+            <EncounterPrepView
+              scene={scene}
+              onInitiateCombat={onInitiateCombat}
+              isLoading={isLoading}
+            />
             {(onResolveCombatVictory || onResolveCombatDefeat || onCancelCombat) && (
               <div className="combat-manual-resolution">
                 <p className="resolution-label">O resolver manualmente:</p>
@@ -111,7 +107,7 @@ export const SceneDMView = ({
                 </div>
               </div>
             )}
-          </div>
+          </>
         )}
 
         {options.length > 0 && scene.scene_type !== 'combate' && (
