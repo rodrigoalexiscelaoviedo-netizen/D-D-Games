@@ -7,6 +7,7 @@ import type { Playthrough, Scene, SceneOption } from '../../lib/adventure-types'
 import { toPlayerScene, toPlayerOption } from '../../lib/adventure-types';
 import { ScenePlayerView } from './ScenePlayerView';
 import { SceneDMView } from './SceneDMView';
+import { FinalAdventureScreen } from './FinalAdventureScreen';
 
 export const PlaythroughScreen = () => {
   const { campaignId, playthroughId } = useParams();
@@ -442,7 +443,13 @@ export const PlaythroughScreen = () => {
         </div>
       )}
 
-      {isPlayerView ? (
+      {(playthrough.status === 'completed' || (visibleOptions.length === 0 && scene.scene_type !== 'combate')) ? (
+        <FinalAdventureScreen
+          playthrough={playthrough}
+          onGoToPreviousScene={hasPreviousScene ? handleGoToPreviousScene : undefined}
+          isLoading={loading}
+        />
+      ) : isPlayerView ? (
         <ScenePlayerView
           scene={toPlayerScene(scene)}
           options={visibleOptions.map(toPlayerOption)}

@@ -982,6 +982,22 @@ textarea.input-field {
 .modal-buttons { display: flex; gap: 1rem; }
 .modal-buttons button { flex: 1; }
 
+/* ===== FINAL ADVENTURE SCREEN ===== */
+.final-adventure-screen { flex: 1; padding: 2rem 1rem; display: flex; flex-direction: column; gap: 2rem; }
+.final-header { text-align: center; margin-bottom: 1rem; }
+.final-header h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+.final-status { font-size: 0.95rem; color: var(--gold); font-weight: 600; }
+.final-content { flex: 1; display: flex; flex-direction: column; gap: 1rem; }
+.log-summary { background: var(--bg-surface-2); padding: 1.5rem; border-radius: var(--radius); border-left: 4px solid var(--gold); }
+.log-summary h2 { color: var(--gold); margin-bottom: 1rem; font-size: 1.1rem; }
+.empty-log { color: var(--ink-muted); font-style: italic; text-align: center; padding: 1rem; }
+.log-entries { display: flex; flex-direction: column; gap: 0.5rem; }
+.log-entry { display: flex; gap: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.15); border-radius: var(--radius); font-size: 0.95rem; }
+.entry-type { background: rgba(201,162,75,0.3); color: var(--gold); padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; white-space: nowrap; }
+.entry-text { color: var(--ink); flex: 1; }
+.final-actions { display: flex; flex-direction: column; gap: 1rem; }
+.final-actions button { width: 100%; }
+
 @media (max-width: 640px) {
   .avatar-grid { grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); }
   .list-header {
