@@ -935,6 +935,8 @@ textarea.input-field {
 .playthrough.player-view { background: rgba(201, 162, 75, 0.04); }
 .playthrough-header { display: flex; gap: 1rem; align-items: center; padding: 1rem; border-bottom: 2px solid var(--border-gold); }
 .playthrough-header h1 { flex: 1; margin: 0; }
+.header-right { display: flex; gap: 1rem; align-items: center; flex-shrink: 0; }
+.session-email { font-size: 0.75rem; color: var(--ink-muted); font-style: italic; }
 .playthrough-header button { flex-shrink: 0; }
 
 .scene-player, .scene-dm { flex: 1; padding: 2rem 1rem; display: flex; flex-direction: column; gap: 2rem; }
