@@ -22,6 +22,7 @@ export const PlaythroughScreen = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [hasPreviousScene, setHasPreviousScene] = useState(false);
   const [sceneCount, setSceneCount] = useState(0);
+  const [optionsLoaded, setOptionsLoaded] = useState(false);
 
   const viewStorageKey = `dnd_view_${playthroughId}`;
 
@@ -33,7 +34,7 @@ export const PlaythroughScreen = () => {
   }, [viewStorageKey]);
 
   useEffect(() => {
-    if (!playthrough || !scene || playthrough.status !== 'active') return;
+    if (!playthrough || !scene || playthrough.status !== 'active' || !optionsLoaded) return;
 
     const visibleOptions = options.filter((opt) => {
       if (!opt.requires_flag) return true;
@@ -92,6 +93,7 @@ export const PlaythroughScreen = () => {
 
       console.log('Playthrough loaded:', pt);
       setPlaythrough(pt);
+      setOptionsLoaded(false);
 
       if (pt.current_scene_id) {
         const { data: sceneData } = await supabase
@@ -110,6 +112,7 @@ export const PlaythroughScreen = () => {
             .order('option_order', { ascending: true });
 
           setOptions(optionsData || []);
+          setOptionsLoaded(true);
         }
       } else {
         const { data: firstScene } = await supabase
@@ -134,6 +137,7 @@ export const PlaythroughScreen = () => {
             .order('option_order', { ascending: true });
 
           setOptions(optionsData || []);
+          setOptionsLoaded(true);
         }
       }
 
