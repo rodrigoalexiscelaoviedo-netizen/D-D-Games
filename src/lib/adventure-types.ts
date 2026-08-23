@@ -17,7 +17,9 @@ export interface Scene {
   dm_text: string;
   player_text?: string;
   encounter?: {
-    enemies: string[]; // nombres de bestiary
+    bestiary_name: string;
+    count: number;
+    note?: string;
   };
   created_at?: string;
 }

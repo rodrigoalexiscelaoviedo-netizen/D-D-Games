@@ -6,6 +6,7 @@ interface Props {
   hiddenOptions: SceneOption[];
   onGoToPreviousScene?: () => Promise<void>;
   canGoToPreviousScene?: boolean;
+  onInitiateCombat?: () => Promise<void>;
   isLoading?: boolean;
   sceneCount?: number;
 }
@@ -16,6 +17,7 @@ export const SceneDMView = ({
   hiddenOptions,
   onGoToPreviousScene,
   canGoToPreviousScene,
+  onInitiateCombat,
   isLoading,
   sceneCount,
 }: Props) => {
@@ -43,11 +45,12 @@ export const SceneDMView = ({
         {scene.encounter && (
           <div className="encounter-info">
             <strong>Encuentro:</strong>
-            <ul>
-              {scene.encounter.enemies?.map((enemy: string) => (
-                <li key={enemy}>{enemy}</li>
-              ))}
-            </ul>
+            <p>
+              {scene.encounter.count} × {scene.encounter.bestiary_name}
+            </p>
+            {scene.encounter.note && (
+              <p className="encounter-note">{scene.encounter.note}</p>
+            )}
           </div>
         )}
       </div>
@@ -56,9 +59,26 @@ export const SceneDMView = ({
         {scene.scene_type === 'combate' && (
           <div className="combat-section">
             <p className="combat-label">Escena de combate</p>
-            <button className="btn-primary" disabled>
-              Iniciar combate (pendiente Paso 4)
-            </button>
+            {onInitiateCombat && (
+              <button
+                className="btn-primary"
+                onClick={onInitiateCombat}
+                disabled={isLoading}
+              >
+                Iniciar combate
+              </button>
+            )}
+            <div className="combat-manual-resolution">
+              <p className="resolution-label">O resolver manualmente:</p>
+              <div className="resolution-buttons">
+                <button className="btn-secondary" disabled>
+                  Resolver: Victoria
+                </button>
+                <button className="btn-secondary" disabled>
+                  Resolver: Derrota
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

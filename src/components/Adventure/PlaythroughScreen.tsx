@@ -195,6 +195,84 @@ export const PlaythroughScreen = () => {
     return <div className="page-pad">Cargando aventura...</div>;
   }
 
+  const handleInitiateCombat = async () => {
+    if (!playthrough || !scene || !scene.encounter) return;
+
+    try {
+      setLoading(true);
+
+      const bestiary_name = scene.encounter.bestiary_name;
+      const count = scene.encounter.count;
+
+      const { data: enemy, error: besteryError } = await supabase
+        .from('bestiary')
+        .select('*')
+        .ilike('name', bestiary_name)
+        .single();
+
+      if (besteryError || !enemy) {
+        throw new Error(`Enemigo no encontrado en el bestiario: ${bestiary_name}`);
+      }
+
+      const { data: characters } = await supabase
+        .from('characters')
+        .select('*')
+        .eq('campaign_id', playthrough.campaign_id);
+
+      if (!characters || characters.length === 0) {
+        throw new Error('La campaña no tiene personajes. Crea personajes antes de iniciar combate.');
+      }
+
+      const { data: combat, error: combatError } = await supabase
+        .from('combats')
+        .insert({
+          campaign_id: playthrough.campaign_id,
+          playthrough_id: playthroughId,
+          scene_id: scene.id,
+        })
+        .select()
+        .single();
+
+      if (combatError || !combat) {
+        throw new Error('No se pudo crear el combate');
+      }
+
+      const participants = [
+        ...Array.from({ length: count }).map(() => ({
+          combat_id: combat.id,
+          entity_type: 'enemy',
+          entity_id: enemy.id,
+          name: enemy.name,
+          hp: enemy.hp || 10,
+          ac: enemy.ac || 12,
+        })),
+        ...characters.map((char) => ({
+          combat_id: combat.id,
+          entity_type: 'character',
+          entity_id: char.id,
+          name: char.name,
+          hp: char.hit_points || 10,
+          ac: char.armor_class || 10,
+        })),
+      ];
+
+      const { error: participantsError } = await supabase
+        .from('combat_participants')
+        .insert(participants)
+        .select();
+
+      if (participantsError) {
+        throw new Error('No se pudieron crear los participantes del combate');
+      }
+
+      navigate(`/campaign/${campaignId}/combat/${combat.id}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error desconocido';
+      alert(`Error al iniciar combate: ${message}`);
+      setLoading(false);
+    }
+  };
+
   const handleGoToPreviousScene = async () => {
     if (!playthrough) return;
 
@@ -322,6 +400,7 @@ export const PlaythroughScreen = () => {
           hiddenOptions={hiddenOptions}
           onGoToPreviousScene={handleGoToPreviousScene}
           canGoToPreviousScene={hasPreviousScene}
+          onInitiateCombat={scene.scene_type === 'combate' ? handleInitiateCombat : undefined}
           isLoading={loading}
           sceneCount={sceneCount}
         />
