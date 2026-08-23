@@ -137,7 +137,7 @@ export const PlaythroughScreen = () => {
         .insert({
           playthrough_id: playthroughId,
           scene_id: scene.id,
-          entry_type: 'option_selected',
+          entry_type: 'decision',
           content: {
             option_id: optionId,
             option_label: selectedOption.player_label,
