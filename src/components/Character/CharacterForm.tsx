@@ -27,10 +27,20 @@ export const CharacterForm = () => {
   const [error, setError] = useState('');
   const [whoPlays, setWhoPlays] = useState<'me' | 'other'>('me');
   const [d, setD] = useState<Partial<Character>>(EMPTY);
+  const [campaignSystem, setCampaignSystem] = useState<string>('dnd5e');
 
   useEffect(() => {
-    if (!isEdit) return;
     (async () => {
+      const { data: campaign } = await supabase
+        .from('campaigns')
+        .select('system')
+        .eq('id', campaignId)
+        .single();
+      if (campaign?.system) {
+        setCampaignSystem(campaign.system);
+      }
+
+      if (!isEdit) return;
       const { data, error: err } = await supabase
         .from('characters').select('*').eq('id', characterId).single();
       if (!err && data) {
@@ -38,7 +48,7 @@ export const CharacterForm = () => {
         setWhoPlays(data.player_user_id ? 'me' : 'other');
       }
     })();
-  }, [characterId, isEdit]);
+  }, [campaignId, characterId, isEdit]);
 
   const set = (patch: Partial<Character>) => setD((p) => ({ ...p, ...patch }));
 
@@ -80,6 +90,7 @@ export const CharacterForm = () => {
       const payload: Record<string, any> = {
         campaign_id: campaignId,
         character_name: d.character_name.trim(),
+        system: campaignSystem,
       };
       if (whoPlays === 'me' && userData.user?.id) {
         payload.player_user_id = userData.user.id;
