@@ -34,17 +34,24 @@ export const PlaythroughScreen = () => {
 
   useEffect(() => {
     (async () => {
-      const { data: pt } = await supabase
+      const { data: pt, error: ptError } = await supabase
         .from('playthroughs')
         .select('*')
         .eq('id', playthroughId)
         .single();
 
+      if (ptError) {
+        console.error('Playthrough query error:', ptError);
+        setLoading(false);
+        return;
+      }
       if (!pt) {
+        console.warn('Playthrough not found for id:', playthroughId);
         setLoading(false);
         return;
       }
 
+      console.log('Playthrough loaded:', { id: pt.id, campaign_id: pt.campaign_id });
       setPlaythrough(pt);
 
       if (pt.current_scene_id) {
@@ -212,16 +219,26 @@ export const PlaythroughScreen = () => {
         .ilike('name', bestiary_name)
         .single();
 
-      if (besteryError || !enemy) {
+      if (besteryError) {
+        console.error('Bestiary query error:', besteryError);
+        throw new Error(`Error al buscar enemigo: ${besteryError.message}`);
+      }
+      if (!enemy) {
         throw new Error(`Enemigo no encontrado en el bestiario: ${bestiary_name}`);
       }
 
-      const { data: characters } = await supabase
+      console.log('handleInitiateCombat - campaign_id:', playthrough.campaign_id);
+      const { data: characters, error: charError } = await supabase
         .from('characters')
         .select('*')
         .eq('campaign_id', playthrough.campaign_id);
 
+      if (charError) {
+        console.error('Characters query error:', charError);
+        throw new Error(`Error al buscar personajes: ${charError.message}`);
+      }
       if (!characters || characters.length === 0) {
+        console.warn('No characters found for campaign_id:', playthrough.campaign_id);
         throw new Error('La campaña no tiene personajes. Crea personajes antes de iniciar combate.');
       }
 
@@ -281,7 +298,7 @@ export const PlaythroughScreen = () => {
     try {
       setLoading(true);
 
-      const { data: combats } = await supabase
+      const { data: combats, error: combatError } = await supabase
         .from('combats')
         .select('id')
         .eq('playthrough_id', playthroughId)
@@ -289,6 +306,10 @@ export const PlaythroughScreen = () => {
         .order('created_at', { ascending: false })
         .limit(1);
 
+      if (combatError) {
+        console.error('Combat query error:', combatError);
+        throw new Error(`Error al buscar combate: ${combatError.message}`);
+      }
       if (!combats || combats.length === 0) {
         throw new Error('No hay combate activo en esta escena');
       }
