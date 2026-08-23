@@ -35,7 +35,16 @@ export const SceneDMView = ({ scene, options, hiddenOptions }: Props) => {
       </div>
 
       <div className="scene-options">
-        {options.length > 0 && (
+        {scene.scene_type === 'combate' && (
+          <div className="combat-section">
+            <p className="combat-label">Escena de combate</p>
+            <button className="btn-primary" disabled>
+              Iniciar combate (pendiente Paso 4)
+            </button>
+          </div>
+        )}
+
+        {options.length > 0 && scene.scene_type !== 'combate' && (
           <div className="visible-options">
             <h3>Opciones disponibles</h3>
             {options.map((opt) => (

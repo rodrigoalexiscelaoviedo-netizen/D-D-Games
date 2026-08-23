@@ -56,6 +56,7 @@ export interface PlaythroughLogEntry {
 export interface PlayerSceneData {
   title?: string;
   player_text?: string;
+  scene_type: 'narracion' | 'decision' | 'tirada' | 'combate' | 'descanso';
 }
 
 export interface PlayerOptionData {
@@ -67,6 +68,7 @@ export function toPlayerScene(scene: Scene): PlayerSceneData {
   return {
     title: scene.title,
     player_text: scene.player_text,
+    scene_type: scene.scene_type,
   };
 }
 

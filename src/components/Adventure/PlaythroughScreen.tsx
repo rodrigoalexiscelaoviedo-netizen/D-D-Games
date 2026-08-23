@@ -102,6 +102,64 @@ export const PlaythroughScreen = () => {
     }
   };
 
+  const handleSelectOption = async (optionId: string) => {
+    if (!playthrough || !scene) return;
+
+    const selectedOption = options.find((opt) => opt.id === optionId);
+    if (!selectedOption || !selectedOption.leads_to_scene_id) return;
+
+    try {
+      setLoading(true);
+
+      const newFlags = selectedOption.sets_flag
+        ? { ...playthrough.flags, [selectedOption.sets_flag]: true }
+        : playthrough.flags;
+
+      const { error: updateError } = await supabase
+        .from('playthroughs')
+        .update({
+          flags: newFlags,
+          current_scene_id: selectedOption.leads_to_scene_id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', playthroughId);
+
+      if (updateError) throw updateError;
+
+      await supabase.from('playthrough_log').insert({
+        playthrough_id: playthroughId,
+        event_type: 'option_selected',
+        event_data: {
+          option_id: optionId,
+          option_label: selectedOption.player_label,
+          scene_id: scene.id,
+          sets_flag: selectedOption.sets_flag,
+        },
+      });
+
+      const { data: nextScene } = await supabase
+        .from('scenes')
+        .select('*')
+        .eq('id', selectedOption.leads_to_scene_id)
+        .single();
+
+      if (nextScene) {
+        setScene(nextScene);
+        setPlaythrough({ ...playthrough, flags: newFlags, current_scene_id: nextScene.id });
+
+        const { data: nextOptions } = await supabase
+          .from('scene_options')
+          .select('*')
+          .eq('scene_id', nextScene.id)
+          .order('option_order', { ascending: true });
+
+        setOptions(nextOptions || []);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading || !playthrough || !scene) {
     return <div className="page-pad">Cargando aventura...</div>;
   }
@@ -152,7 +210,12 @@ export const PlaythroughScreen = () => {
       )}
 
       {isPlayerView ? (
-        <ScenePlayerView scene={toPlayerScene(scene)} options={visibleOptions.map(toPlayerOption)} />
+        <ScenePlayerView
+          scene={toPlayerScene(scene)}
+          options={visibleOptions.map(toPlayerOption)}
+          onSelectOption={handleSelectOption}
+          isLoading={loading}
+        />
       ) : (
         <SceneDMView scene={scene} options={visibleOptions} hiddenOptions={hiddenOptions} />
       )}

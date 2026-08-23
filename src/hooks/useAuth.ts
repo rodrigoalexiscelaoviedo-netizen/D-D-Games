@@ -6,7 +6,6 @@ export const useAuth = () => {
   const store = useAuthStore();
 
   useEffect(() => {
-    console.log('[useAuth] useEffect ran');
     const initAuth = async () => {
       await useAuthStore.getState().checkAuth();
 
