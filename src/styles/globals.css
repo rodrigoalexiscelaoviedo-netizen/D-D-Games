@@ -940,6 +940,7 @@ textarea.input-field {
 .playthrough-header button { flex-shrink: 0; }
 
 .scene-player, .scene-dm { flex: 1; padding: 2rem 1rem; display: flex; flex-direction: column; gap: 2rem; }
+.scene-progress { font-size: 0.85rem; color: var(--ink-muted); margin-bottom: 1rem; font-style: italic; }
 .scene-content { flex: 1; }
 .scene-text { font-size: 1.05rem; line-height: 1.8; color: var(--ink); white-space: pre-wrap; }
 .dm-text { background: rgba(0,0,0,0.15); padding: 1.5rem; border-radius: var(--radius); border-left: 4px solid var(--gold); }
