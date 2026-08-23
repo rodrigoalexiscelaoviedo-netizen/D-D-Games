@@ -90,7 +90,7 @@ export const PlaythroughScreen = () => {
         return;
       }
 
-      console.log('Playthrough loaded:', { id: pt.id, campaign_id: pt.campaign_id });
+      console.log('Playthrough loaded:', pt);
       setPlaythrough(pt);
 
       if (pt.current_scene_id) {
