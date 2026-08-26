@@ -5,8 +5,8 @@ import { useAuth } from '../../hooks/useAuth';
 
 interface Adventure {
   id: string;
-  name: string;
-  description?: string;
+  title: string;
+  synopsis?: string;
   suggested_level?: number;
 }
 
@@ -125,11 +125,11 @@ export const AdventureList = () => {
               <div className="adventures-grid">
                 {adventures.map((adv) => (
                   <div key={adv.id} className="adventure-card">
-                    <h3>{adv.name}</h3>
+                    <h3>{adv.title}</h3>
                     {adv.suggested_level && (
                       <p className="adventure-level">Nivel sugerido: {adv.suggested_level}</p>
                     )}
-                    {adv.description && <p className="adventure-description">{adv.description}</p>}
+                    {adv.synopsis && <p className="adventure-description">{adv.synopsis}</p>}
                     <button
                       className="btn-primary"
                       onClick={() => handleStartAdventure(adv.id)}
