@@ -23,6 +23,8 @@ export const PlaythroughScreen = () => {
   const [hasPreviousScene, setHasPreviousScene] = useState(false);
   const [sceneCount, setSceneCount] = useState(0);
   const [optionsLoaded, setOptionsLoaded] = useState(false);
+  const [isDM, setIsDM] = useState(false);
+  const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
 
   const viewStorageKey = `dnd_view_${playthroughId}`;
 
@@ -72,6 +74,54 @@ export const PlaythroughScreen = () => {
     }
   }, [playthrough?.id, scene?.id, options.length]);
 
+  // Polling: sincroniza cambios de escena cada 2 segundos
+  useEffect(() => {
+    if (!playthrough) return;
+
+    const pollInterval = setInterval(async () => {
+      const { data: pt } = await supabase
+        .from('playthroughs')
+        .select('current_scene_id')
+        .eq('id', playthroughId)
+        .single();
+
+      if (pt && pt.current_scene_id && pt.current_scene_id !== currentSceneId) {
+        // Escena cambió, actualizar
+        setCurrentSceneId(pt.current_scene_id);
+        const { data: newScene } = await supabase
+          .from('scenes')
+          .select('*')
+          .eq('id', pt.current_scene_id)
+          .single();
+
+        if (newScene) {
+          setScene(newScene);
+          const { data: newOptions } = await supabase
+            .from('scene_options')
+            .select('*')
+            .eq('scene_id', newScene.id)
+            .order('option_order', { ascending: true });
+
+          setOptions(newOptions || []);
+          setOptionsLoaded(true);
+
+          // Actualizar playthrough con nuevos flags si cambió
+          const { data: updatedPt } = await supabase
+            .from('playthroughs')
+            .select('*')
+            .eq('id', playthroughId)
+            .single();
+
+          if (updatedPt) {
+            setPlaythrough(updatedPt);
+          }
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
+  }, [playthroughId, currentSceneId, playthrough]);
+
   useEffect(() => {
     (async () => {
       const { data: pt, error: ptError } = await supabase
@@ -93,6 +143,8 @@ export const PlaythroughScreen = () => {
 
       console.log('Playthrough loaded:', pt);
       setPlaythrough(pt);
+      setIsDM(pt.user_id === user?.id);
+      setCurrentSceneId(pt.current_scene_id || null);
       setOptionsLoaded(false);
 
       if (pt.current_scene_id) {
@@ -160,6 +212,8 @@ export const PlaythroughScreen = () => {
   }, [playthroughId]);
 
   const toggleView = () => {
+    // Solo DM puede cambiar vista
+    if (!isDM) return;
     const newView = !isPlayerView;
     setIsPlayerView(newView);
     localStorage.setItem(viewStorageKey, newView ? 'player' : 'dm');
@@ -545,15 +599,15 @@ export const PlaythroughScreen = () => {
         </button>
         <h1>{scene.title || `Escena ${scene.scene_order}`}</h1>
         <div className="header-right">
-          {!isPlayerView && user && (
+          {isDM && !isPlayerView && user && (
             <span className="session-email">{user.email}</span>
           )}
-          {!isPlayerView && (
+          {isDM && !isPlayerView && (
             <button className="btn-primary" onClick={handleShowToPlayers}>
               Mostrar a los jugadores
             </button>
           )}
-          {isPlayerView && (
+          {isDM && isPlayerView && (
             <button className="btn-secondary" onClick={() => setShowConfirm(true)}>
               Volver a DM
             </button>
@@ -583,7 +637,7 @@ export const PlaythroughScreen = () => {
           onGoToPreviousScene={hasPreviousScene ? handleGoToPreviousScene : undefined}
           isLoading={loading}
         />
-      ) : isPlayerView ? (
+      ) : !isDM || isPlayerView ? (
         <ScenePlayerView
           scene={toPlayerScene(scene)}
           options={visibleOptions.map(toPlayerOption)}
