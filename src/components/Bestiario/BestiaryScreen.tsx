@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { getPortraitUrl } from '../../lib/portrait-utils';
@@ -8,6 +9,7 @@ type Bestiary = Database['public']['Tables']['bestiary']['Row'];
 
 export const BestiaryScreen = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [monsters, setMonsters] = useState<Bestiary[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -72,6 +74,9 @@ export const BestiaryScreen = () => {
 
   return (
     <div className="bestiario-screen page-pad">
+      <button className="btn-secondary" onClick={() => navigate('/dashboard')}>
+        ← Volver
+      </button>
       <h1>Bestiario</h1>
 
       <div className="bestiario-controls">

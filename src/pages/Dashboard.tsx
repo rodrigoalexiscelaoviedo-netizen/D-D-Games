@@ -32,6 +32,9 @@ export const Dashboard = () => {
       <header className="dashboard-header">
         <h1>Mis Campañas</h1>
         <div className="user-menu">
+          <button onClick={() => navigate('/bestiary')} className="btn-secondary">
+            Bestiario
+          </button>
           <span>{auth.user?.email}</span>
           <button onClick={handleLogout} className="btn-logout">
             Logout

@@ -37,18 +37,29 @@ export const CampaignHome = () => {
           ← Mis campañas
         </button>
         <h1>{campaign.name}</h1>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+      </header>
+
+      <div className="campaign-home-actions">
+        <div className="actions-primary">
+          <button
+            onClick={() => navigate(`/campaign/${campaignId}/adventures`)}
+            className="btn-primary btn-large"
+          >
+            Aventuras
+          </button>
+        </div>
+        <div className="actions-secondary">
           <button
             onClick={() => navigate(`/campaign/${campaignId}/characters`)}
-            className="btn-primary"
+            className="btn-secondary"
           >
             Personajes
           </button>
           <button
-            onClick={() => navigate(`/campaign/${campaignId}/combat/new`)}
-            className="btn-primary"
+            onClick={() => navigate('/bestiary')}
+            className="btn-secondary"
           >
-            ⚔️ Iniciar Combate
+            Bestiario
           </button>
           <button
             onClick={() => navigate(`/campaign/${campaignId}/wiki`)}
@@ -56,11 +67,19 @@ export const CampaignHome = () => {
           >
             📖 Wiki
           </button>
-          <button onClick={handleDelete} className="btn-danger">
+        </div>
+        <div className="actions-tertiary">
+          <button
+            onClick={() => navigate(`/campaign/${campaignId}/combat/new`)}
+            className="btn-secondary"
+          >
+            ⚔️ Combate rápido
+          </button>
+          <button onClick={handleDelete} className="btn-danger btn-small">
             Borrar
           </button>
         </div>
-      </header>
+      </div>
       <div className="campaign-home-body">
         <p className="campaign-meta">
           Sistema: {campaign.system} · Estilo: {campaign.playstyle} · Tono: {campaign.tone}

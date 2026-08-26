@@ -1023,6 +1023,29 @@ textarea.input-field {
 .reference-label { font-size: 0.85rem; color: var(--ink-muted); margin: 0 0 0.5rem; font-weight: 600; }
 .reference-list { margin: 0; padding-left: 1.5rem; font-size: 0.8rem; color: var(--ink-muted); }
 .reference-list li { margin-bottom: 0.25rem; }
+
+.adventure-list { max-width: 1000px; }
+.adventure-list h1 { margin-top: 1.5rem; }
+.adventures-section, .playthroughs-section, .completed-section { margin-bottom: 2rem; }
+.adventures-section h2, .playthroughs-section h2, .completed-section h2 { margin-bottom: 1rem; color: var(--gold); }
+.adventures-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+.adventure-card { background: var(--bg-surface-2); padding: 1.5rem; border-radius: var(--radius); border-left: 3px solid var(--border-gold); display: flex; flex-direction: column; gap: 1rem; }
+.adventure-card h3 { margin: 0; font-size: 1.2rem; color: var(--ink); }
+.adventure-level { margin: 0; font-size: 0.9rem; font-weight: 600; color: var(--gold); }
+.adventure-description { margin: 0; font-size: 0.95rem; color: var(--ink-muted); line-height: 1.5; flex: 1; }
+.playthroughs-list, .completed-list { display: flex; flex-direction: column; gap: 1rem; }
+.playthrough-item, .completed-item { background: var(--bg-surface-2); padding: 1rem; border-radius: var(--radius); border-left: 3px solid var(--border-gold); display: flex; justify-content: space-between; align-items: center; }
+.playthrough-info h4 { margin: 0; font-size: 1rem; }
+.playthrough-status, .completed-status { margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--ink-muted); }
+.completed-item p { margin: 0; font-size: 0.95rem; }
+.completed-status { color: var(--gold); font-weight: 600; }
+
+.campaign-home-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap; }
+.campaign-home-header h1 { flex: 1; margin: 0; }
+.campaign-home-actions { display: flex; flex-direction: column; gap: 1.5rem; }
+.actions-primary { display: flex; gap: 0.5rem; }
+.actions-secondary, .actions-tertiary { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.btn-large { padding: 0.8rem 1.5rem; font-size: 1rem; }
 .modal-content p { margin: 0 0 1.5rem; color: var(--ink); font-size: 1rem; line-height: 1.6; }
 .modal-buttons { display: flex; gap: 1rem; }
 .modal-buttons button { flex: 1; }
