@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../hooks/useAuth';
 
 interface Adventure {
   id: string;
@@ -21,7 +20,6 @@ interface Playthrough {
 export const AdventureList = () => {
   const { campaignId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   const [adventures, setAdventures] = useState<Adventure[]>([]);
   const [playthroughs, setPlaythroughs] = useState<Playthrough[]>([]);

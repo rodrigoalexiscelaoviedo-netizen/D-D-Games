@@ -3,9 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { getPortraitUrl } from '../../lib/portrait-utils';
-import type { Database } from '../../lib/database.types';
 
-type Bestiary = Database['public']['Tables']['bestiary']['Row'];
+interface Bestiary {
+  id: string;
+  name: string;
+  portrait_seed?: string;
+  challenge_rating?: number;
+  user_id?: string;
+  hp?: number;
+  armor_class?: number;
+  dexterity?: number;
+  description?: string;
+}
 
 export const BestiaryScreen = () => {
   const { user } = useAuth();
