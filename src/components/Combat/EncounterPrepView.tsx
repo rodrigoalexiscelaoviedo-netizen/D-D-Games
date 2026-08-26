@@ -27,6 +27,8 @@ export const EncounterPrepView = ({ scene, onInitiateCombat, isLoading }: Props)
 
     (async () => {
       try {
+        if (!scene.encounter) return;
+
         const { bestiary_name, count, note } = scene.encounter;
 
         const { data: monster } = await supabase

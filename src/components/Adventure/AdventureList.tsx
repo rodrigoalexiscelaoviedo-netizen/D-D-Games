@@ -97,7 +97,7 @@ export const AdventureList = () => {
   };
 
   const getAdventureName = (adventureId: string) => {
-    return adventures.find((a) => a.id === adventureId)?.name || 'Aventura desconocida';
+    return adventures.find((a) => a.id === adventureId)?.title || 'Aventura desconocida';
   };
 
   const activPlaythroughs = playthroughs.filter((p) => p.status === 'active');
