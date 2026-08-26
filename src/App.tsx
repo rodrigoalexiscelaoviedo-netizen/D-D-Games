@@ -12,6 +12,8 @@ import { CombatScreen } from './components/Combat/CombatScreen';
 import { CampaignWiki } from './components/Campaign/CampaignWiki';
 import { PlaythroughScreen } from './components/Adventure/PlaythroughScreen';
 import { AdventureList } from './components/Adventure/AdventureList';
+import { AdventureEditor } from './components/Adventure/AdventureEditor';
+import { PlaythroughLobby } from './components/Adventure/PlaythroughLobby';
 import { BestiaryScreen } from './components/Bestiario/BestiaryScreen';
 
 export default function App() {
@@ -89,6 +91,22 @@ export default function App() {
           element={
             <ProtectedRoute>
               <AdventureList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/campaign/:campaignId/admin/adventures"
+          element={
+            <ProtectedRoute>
+              <AdventureEditor />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/campaign/:campaignId/play/:playthroughId/lobby"
+          element={
+            <ProtectedRoute>
+              <PlaythroughLobby />
             </ProtectedRoute>
           }
         />

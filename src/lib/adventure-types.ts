@@ -1,7 +1,7 @@
 export interface Adventure {
   id: string;
   title: string;
-  level_suggestion?: number;
+  suggested_level?: number;
   synopsis?: string;
   author?: string;
   origin?: string;

@@ -47,6 +47,12 @@ export const CampaignHome = () => {
           >
             Aventuras
           </button>
+          <button
+            onClick={() => navigate(`/campaign/${campaignId}/admin/adventures`)}
+            className="btn-secondary btn-large"
+          >
+            ⚙️ Editar aventuras
+          </button>
         </div>
         <div className="actions-secondary">
           <button

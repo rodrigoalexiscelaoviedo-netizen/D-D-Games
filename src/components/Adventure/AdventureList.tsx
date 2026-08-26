@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
 
 interface Adventure {
   id: string;
@@ -20,11 +21,13 @@ interface Playthrough {
 export const AdventureList = () => {
   const { campaignId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [adventures, setAdventures] = useState<Adventure[]>([]);
   const [playthroughs, setPlaythroughs] = useState<Playthrough[]>([]);
   const [loading, setLoading] = useState(true);
   const [creatingPlaythrough, setCreatingPlaythrough] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -33,6 +36,17 @@ export const AdventureList = () => {
       setLoading(true);
 
       try {
+        // Check if user is owner
+        const { data: campaign } = await supabase
+          .from('campaigns')
+          .select('user_id')
+          .eq('id', campaignId)
+          .single();
+
+        if (campaign && campaign.user_id === user?.id) {
+          setIsOwner(true);
+        }
+
         const { data: advs } = await supabase
           .from('adventures')
           .select('*')
@@ -52,7 +66,7 @@ export const AdventureList = () => {
         setLoading(false);
       }
     })();
-  }, [campaignId]);
+  }, [campaignId, user?.id]);
 
   const handleStartAdventure = async (adventureId: string) => {
     if (!campaignId) return;
@@ -135,6 +149,14 @@ export const AdventureList = () => {
                     >
                       Empezar partida
                     </button>
+                    {isOwner && (
+                      <button
+                        className="btn-secondary btn-small"
+                        onClick={() => navigate(`/campaign/${campaignId}/admin/adventures`)}
+                      >
+                        ⚙️ Editar
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
