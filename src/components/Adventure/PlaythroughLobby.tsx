@@ -20,7 +20,7 @@ interface Participant {
 
 interface Character {
   id: string;
-  name: string;
+  character_name: string;
   campaign_id: string;
 }
 
@@ -70,7 +70,7 @@ export const PlaythroughLobby = () => {
             if (p.character_id) {
               const { data: c } = await supabase
                 .from('characters')
-                .select('id, name')
+                .select('id, character_name')
                 .eq('id', p.character_id)
                 .single();
               char = c;
@@ -87,7 +87,7 @@ export const PlaythroughLobby = () => {
       // Load characters for this campaign
       const { data: chars } = await supabase
         .from('characters')
-        .select('id, name, campaign_id')
+        .select('id, character_name, campaign_id')
         .eq('campaign_id', campaignId);
 
       setCharacters(chars || []);
@@ -225,7 +225,7 @@ export const PlaythroughLobby = () => {
               <div key={player.id} className="player-item">
                 <span className="player-email">{player.user_email || 'Jugador'}</span>
                 {player.confirmed ? (
-                  <span className="player-status-confirmed">✓ {player.character?.name}</span>
+                  <span className="player-status-confirmed">✓ {player.character?.character_name}</span>
                 ) : (
                   <span className="player-status-waiting">Esperando...</span>
                 )}
@@ -255,7 +255,7 @@ export const PlaythroughLobby = () => {
           <h2>Selecciona tu personaje</h2>
           {currentUserParticipant.confirmed ? (
             <div className="character-confirmed">
-              <p>✓ Personaje confirmado: {currentUserParticipant.character?.name}</p>
+              <p>✓ Personaje confirmado: {currentUserParticipant.character?.character_name}</p>
             </div>
           ) : (
             <div>
@@ -267,7 +267,7 @@ export const PlaythroughLobby = () => {
                 <option value="">-- Elige un personaje --</option>
                 {characters.map((char) => (
                   <option key={char.id} value={char.id}>
-                    {char.name}
+                    {char.character_name}
                   </option>
                 ))}
               </select>
