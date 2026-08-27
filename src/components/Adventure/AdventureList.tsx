@@ -101,7 +101,24 @@ export const AdventureList = () => {
         throw new Error('No se pudo crear la partida');
       }
 
-      navigate(`/campaign/${campaignId}/play/${newPlaythrough[0].id}`);
+      const playthroughId = newPlaythrough[0].id;
+
+      // Crear participante DM
+      const { data: dmParticipant, error: dmError } = await supabase
+        .from('playthrough_participants')
+        .insert({
+          playthrough_id: playthroughId,
+          user_id: user?.id,
+          role: 'dm',
+          confirmed: true,
+        })
+        .select();
+
+      if (dmError || !dmParticipant || dmParticipant.length === 0) {
+        throw new Error('No se pudo crear participante DM');
+      }
+
+      navigate(`/campaign/${campaignId}/play/${playthroughId}/lobby`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
       alert(`Error al iniciar aventura: ${message}`);
