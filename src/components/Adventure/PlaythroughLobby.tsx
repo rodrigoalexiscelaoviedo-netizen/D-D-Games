@@ -13,7 +13,7 @@ interface Participant {
   joined_at: string;
   character?: {
     id: string;
-    name: string;
+    character_name: string;
   };
   user_email?: string;
 }
