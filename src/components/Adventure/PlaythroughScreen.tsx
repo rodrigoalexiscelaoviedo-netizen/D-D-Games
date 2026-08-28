@@ -24,6 +24,7 @@ export const PlaythroughScreen = () => {
   const [sceneCount, setSceneCount] = useState(0);
   const [optionsLoaded, setOptionsLoaded] = useState(false);
   const [isDM, setIsDM] = useState(false);
+  const [userRole, setUserRole] = useState<'dm' | 'player'>('player');
   const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
 
   const viewStorageKey = `dnd_view_${playthroughId}`;
@@ -143,9 +144,27 @@ export const PlaythroughScreen = () => {
 
       console.log('Playthrough loaded:', pt);
       setPlaythrough(pt);
-      setIsDM(pt.user_id === user?.id);
       setCurrentSceneId(pt.current_scene_id || null);
       setOptionsLoaded(false);
+
+      // Cargar rol del usuario en este playthrough
+      if (pt.user_id === user?.id) {
+        setIsDM(true);
+        setUserRole('dm');
+      } else {
+        // Buscar en participantes
+        const { data: participant } = await supabase
+          .from('playthrough_participants')
+          .select('role')
+          .eq('playthrough_id', playthroughId)
+          .eq('user_id', user?.id)
+          .single();
+
+        if (participant) {
+          setUserRole(participant.role === 'dm' ? 'dm' : 'player');
+          setIsDM(participant.role === 'dm');
+        }
+      }
 
       if (pt.current_scene_id) {
         const { data: sceneData } = await supabase
@@ -637,7 +656,7 @@ export const PlaythroughScreen = () => {
           onGoToPreviousScene={hasPreviousScene ? handleGoToPreviousScene : undefined}
           isLoading={loading}
         />
-      ) : !isDM || isPlayerView ? (
+      ) : userRole === 'player' ? (
         <ScenePlayerView
           scene={toPlayerScene(scene)}
           options={visibleOptions.map(toPlayerOption)}
