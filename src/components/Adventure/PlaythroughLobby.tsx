@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { CharacterAvatar } from '../CharacterAvatar';
 
 interface Participant {
   id: string;
@@ -223,12 +224,21 @@ export const PlaythroughLobby = () => {
           <div className="players-list">
             {players.map((player) => (
               <div key={player.id} className="player-item">
-                <span className="player-email">{player.user_email || 'Jugador'}</span>
-                {player.confirmed ? (
-                  <span className="player-status-confirmed">✓ {player.character?.character_name}</span>
-                ) : (
-                  <span className="player-status-waiting">Esperando...</span>
+                {player.confirmed && player.character?.character_name && (
+                  <CharacterAvatar characterName={player.character.character_name} size="small" />
                 )}
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontWeight: '600' }}>{player.user_email || 'Jugador'}</p>
+                  {player.confirmed ? (
+                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.9rem', color: 'var(--gold)' }}>
+                      {player.character?.character_name}
+                    </p>
+                  ) : (
+                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.9rem', color: 'var(--ink-muted)' }}>
+                      Esperando...
+                    </p>
+                  )}
+                </div>
               </div>
             ))}
           </div>

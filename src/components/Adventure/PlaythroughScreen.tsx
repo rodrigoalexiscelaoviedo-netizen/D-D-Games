@@ -8,6 +8,8 @@ import { toPlayerScene, toPlayerOption } from '../../lib/adventure-types';
 import { ScenePlayerView } from './ScenePlayerView';
 import { SceneDMView } from './SceneDMView';
 import { FinalAdventureScreen } from './FinalAdventureScreen';
+import { audioManager } from '../../lib/audio';
+import { CombatAnimation } from '../Combat/CombatAnimations';
 
 export const PlaythroughScreen = () => {
   const { campaignId, playthroughId } = useParams();
@@ -26,6 +28,7 @@ export const PlaythroughScreen = () => {
   const [isDM, setIsDM] = useState(false);
   const [userRole, setUserRole] = useState<'dm' | 'player'>('player');
   const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
+  const [combatAnimations, setCombatAnimations] = useState<Array<{ id: string; type: 'attack' | 'heal' | 'damage' | 'miss'; value?: number; x: number; y: number }>>([]);
 
   const viewStorageKey = `dnd_view_${playthroughId}`;
 
@@ -97,6 +100,16 @@ export const PlaythroughScreen = () => {
 
         if (newScene) {
           setScene(newScene);
+
+          // Reproducir audio ambiental según tipo de escena
+          if (newScene.scene_type === 'combate') {
+            audioManager.playAmbient('dungeon');
+          } else if (newScene.scene_type === 'social') {
+            audioManager.playAmbient('tavern');
+          } else if (newScene.scene_type === 'exploration') {
+            audioManager.playAmbient('forest');
+          }
+
           const { data: newOptions } = await supabase
             .from('scene_options')
             .select('*')
@@ -195,6 +208,16 @@ export const PlaythroughScreen = () => {
 
         if (firstScene) {
           setScene(firstScene);
+
+          // Reproducir audio ambiental para la escena inicial
+          if (firstScene.scene_type === 'combate') {
+            audioManager.playAmbient('dungeon');
+          } else if (firstScene.scene_type === 'social') {
+            audioManager.playAmbient('tavern');
+          } else if (firstScene.scene_type === 'exploration') {
+            audioManager.playAmbient('forest');
+          }
+
           await supabase
             .from('playthroughs')
             .update({ current_scene_id: firstScene.id })
@@ -419,6 +442,9 @@ export const PlaythroughScreen = () => {
         throw new Error('No se pudieron crear los participantes del combate');
       }
 
+      // Play combat initiation sound
+      audioManager.playEffect('attack');
+
       navigate(`/campaign/${campaignId}/combat/${combat.id}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
@@ -630,6 +656,11 @@ export const PlaythroughScreen = () => {
           )}
         </div>
       </header>
+
+      {/* Render combat animations overlay */}
+      {combatAnimations.map((anim) => (
+        <CombatAnimation key={anim.id} type={anim.type} value={anim.value} x={anim.x} y={anim.y} />
+      ))}
 
       {showConfirm && (
         <div className="modal-backdrop" onClick={() => setShowConfirm(false)}>
