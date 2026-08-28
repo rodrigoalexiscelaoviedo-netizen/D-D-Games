@@ -75,7 +75,6 @@ export const CharacterForm = () => {
   };
 
   const handleSave = async () => {
-    console.log('handleSave called, character_name:', d.character_name);
     setError('');
     if (!d.character_name?.trim()) {
       setError('El personaje necesita al menos un nombre');
@@ -83,7 +82,6 @@ export const CharacterForm = () => {
       return;
     }
     setSaving(true);
-    console.log('About to insert character:', d.character_name);
     try {
       const { data: userData } = await supabase.auth.getUser();
 
@@ -131,7 +129,6 @@ export const CharacterForm = () => {
       if (d.notes) payload.notes = d.notes;
       if (d.milestone) payload.milestone = d.milestone;
 
-      console.log('Payload:', payload);
 
       let resErr;
       if (isEdit) {
@@ -142,12 +139,10 @@ export const CharacterForm = () => {
         resErr = error;
       }
       if (resErr) {
-        console.log('Error detail:', resErr);
         throw resErr;
       }
       navigate(`/campaign/${campaignId}/characters`);
     } catch (err) {
-      console.log('Catch error:', err);
       setError(err instanceof Error ? err.message : 'No se pudo guardar');
     } finally {
       setSaving(false);

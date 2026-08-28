@@ -142,7 +142,6 @@ export const PlaythroughScreen = () => {
         return;
       }
 
-      console.log('Playthrough loaded:', pt);
       setPlaythrough(pt);
       setCurrentSceneId(pt.current_scene_id || null);
       setOptionsLoaded(false);
@@ -349,7 +348,6 @@ export const PlaythroughScreen = () => {
 
       const enemy = enemies[0];
 
-      console.log('handleInitiateCombat - campaign_id:', playthrough.campaign_id);
       const { data: characters, error: charError } = await supabase
         .from('characters')
         .select('*')
@@ -403,7 +401,6 @@ export const PlaythroughScreen = () => {
         })),
       ];
 
-      console.log('PARTICIPANTS PAYLOAD:', JSON.stringify(participants, null, 2));
       const { data: participantsData, error: participantsError } = await supabase
         .from('combat_participants')
         .insert(participants)

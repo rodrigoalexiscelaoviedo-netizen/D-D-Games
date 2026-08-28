@@ -51,8 +51,36 @@ export interface PlaythroughLogEntry {
   id: string;
   playthrough_id: string;
   event_type: string;
-  event_data: any;
+  event_data: Record<string, unknown>;
   created_at: string;
+}
+
+export interface Campaign {
+  id: string;
+  user_id: string;
+  name: string;
+  system: string;
+  playstyle: string;
+  tone: string;
+  created_at?: string;
+}
+
+export interface Character {
+  id: string;
+  campaign_id: string;
+  character_name: string;
+  player_user_id?: string;
+  created_at?: string;
+}
+
+export interface PlaythroughParticipant {
+  id: string;
+  playthrough_id: string;
+  user_id: string;
+  character_id?: string;
+  role: 'dm' | 'player';
+  confirmed: boolean;
+  joined_at: string;
 }
 
 export interface PlayerSceneData {

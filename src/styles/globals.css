@@ -1066,13 +1066,39 @@ textarea.input-field {
 .final-actions { display: flex; flex-direction: column; gap: 1rem; }
 .final-actions button { width: 100%; }
 
-@media (max-width: 640px) {
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+  body { font-size: 1rem; }
+  h1 { font-size: 1.8rem; }
+  h2 { font-size: 1.4rem; }
+  .page-pad { padding: 1.5rem; }
+}
+
+@media (max-width: 768px) {
+  .campaign-home-header { flex-direction: column; align-items: flex-start; }
+  .campaign-home-header h1 { width: 100%; }
+  .actions-primary, .actions-secondary, .actions-tertiary { flex-direction: column; }
+  .btn-primary, .btn-secondary, .btn-danger { width: 100%; }
+  .adventures-grid { grid-template-columns: 1fr; }
+  .playthrough-item { flex-direction: column; align-items: flex-start; gap: 1rem; }
+  .login-card { padding: 1.5rem; max-width: 90vw; }
+  .modal-content { padding: 1.5rem; }
   .avatar-grid { grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); }
-  .list-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .char-grid {
-    grid-template-columns: 1fr;
-  }
+  .char-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  body { font-size: 0.95rem; line-height: 1.5; }
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.2rem; }
+  .page-pad { padding: 1rem; }
+  .btn-primary, .btn-secondary { padding: 0.6rem 1.2rem; font-size: 0.9rem; }
+  .input-field { padding: 0.6rem; font-size: 1rem; }
+  .login-card { padding: 1.5rem; border-radius: 8px; }
+  .header { padding: 1rem; }
+  .playthrough { flex-direction: column; }
+  .modal-backdrop { padding: 1rem; }
+  .modal-content { width: 95vw; max-width: 100%; }
+  .modal-buttons { flex-direction: column; }
+  .header-right { flex-direction: column; gap: 0.5rem; }
 }
