@@ -6,21 +6,11 @@ export default defineConfig({
   plugins: [react()],
   base: '/',
   build: {
-    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          if (id.includes('node_modules/react')) {
-            return 'vendor-react';
-          }
-          if (id.includes('node_modules/@supabase')) {
-            return 'vendor-supabase';
-          }
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
-        },
+        inlineDynamicImports: true,
       },
     },
+    chunkSizeWarningLimit: 10000,
   },
 })
