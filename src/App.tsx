@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Login } from './components/Auth/Login';
 import { Signup } from './components/Auth/Signup';
 import { Dashboard } from './pages/Dashboard';
@@ -18,8 +19,9 @@ import { BestiaryScreen } from './components/Bestiario/BestiaryScreen';
 
 export default function App() {
   return (
-    <Router>
-      <Routes>
+    <ErrorBoundary>
+      <Router>
+        <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route
@@ -135,7 +137,8 @@ export default function App() {
           }
         />
         <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </Router>
+        </Routes>
+      </Router>
+    </ErrorBoundary>
   );
 }
