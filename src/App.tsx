@@ -11,6 +11,7 @@ import { CharacterList } from './components/Character/CharacterList';
 import { CombatSetup } from './components/Combat/CombatSetup';
 import { CombatScreen } from './components/Combat/CombatScreen';
 import { CampaignWiki } from './components/Campaign/CampaignWiki';
+import { DMToolsPage } from './components/Campaign/DMToolsPage';
 import { PlaythroughScreen } from './components/Adventure/PlaythroughScreen';
 import { AdventureList } from './components/Adventure/AdventureList';
 import { AdventureEditor } from './components/Adventure/AdventureEditor';
@@ -117,6 +118,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <CampaignWiki />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/campaign/:campaignId/dm-tools"
+          element={
+            <ProtectedRoute>
+              <DMToolsPage />
             </ProtectedRoute>
           }
         />

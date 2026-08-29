@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { cerrarCombate } from '../../lib/combat-return';
 import { resolveAttack, nextAliveIndex, isCombatOver, abilityMod, roll, skillCheck, getAbility } from '../../lib/combat-engine';
+import { CombatAnimation } from './CombatAnimations';
 import type { RollResult } from '../../lib/combat-engine';
 
 type Phase = 'awaiting_player' | 'awaiting_dm_continue' | 'showing_roll' | 'finished';
@@ -21,6 +22,7 @@ export const CombatScreen = () => {
   const [busy, setBusy] = useState(false);
   const [pickingTarget, setPickingTarget] = useState<PickingFor>(null);
   const [classMap, setClassMap] = useState<Record<string, string>>({});
+  const [animationQueue, setAnimationQueue] = useState<Array<{ id: string; type: 'attack' | 'damage' | 'heal' | 'miss'; value?: number; x: number; y: number }>>([]);
 
   const refetch = useCallback(async () => {
     const { data: c } = await supabase
@@ -81,6 +83,14 @@ export const CombatScreen = () => {
 
   const effectiveAC = (p: any) => (p?.armor_class ?? 10) + (p?.temp_ac_bonus ?? 0);
 
+  const addAnimation = (type: 'attack' | 'damage' | 'heal' | 'miss', value: number | undefined, x: number, y: number) => {
+    const animId = `${Date.now()}-${Math.random()}`;
+    setAnimationQueue(prev => [...prev, { id: animId, type, value, x, y }]);
+    setTimeout(() => {
+      setAnimationQueue(prev => prev.filter(a => a.id !== animId));
+    }, 1200);
+  };
+
   const commitTurn = async (opts: { newLog: string[]; targetId?: string; newTargetHp?: number }) => {
     if (opts.targetId != null && opts.newTargetHp != null) {
       await supabase
@@ -140,6 +150,12 @@ export const CombatScreen = () => {
         }${result.damage} de daño${newHp <= 0 ? ' · cae' : ''}`
       : `${current.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · falla`;
 
+    if (result.hit) {
+      addAnimation('damage', result.damage, window.innerWidth / 2, window.innerHeight / 2);
+    } else {
+      addAnimation('miss', undefined, window.innerWidth / 2, window.innerHeight / 2);
+    }
+
     setTimeout(async () => {
       await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: newHp });
       setBusy(false);
@@ -166,6 +182,7 @@ export const CombatScreen = () => {
     if (ability.kind === 'heal') {
       const healed = roll(ability.healDice ?? 8) + 2;
       const newHp = Math.min(current.hp_max, current.hp_current + healed);
+      addAnimation('heal', healed, window.innerWidth / 2, window.innerHeight / 2);
       await supabase
         .from('combat_participants')
         .update({ hp_current: newHp, ability_used: true })
@@ -211,6 +228,12 @@ export const CombatScreen = () => {
           result.critical ? 'CRÍTICO ' : ''
         }${result.damage} de daño${newHp <= 0 ? ' · cae' : ''}`
       : `${current.name} usa ${ability.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · falla`;
+
+    if (result.hit) {
+      addAnimation('damage', result.damage, window.innerWidth / 2, window.innerHeight / 2);
+    } else {
+      addAnimation('miss', undefined, window.innerWidth / 2, window.innerHeight / 2);
+    }
 
     await supabase.from('combat_participants').update({ ability_used: true }).eq('id', current.id);
 
@@ -273,6 +296,12 @@ export const CombatScreen = () => {
           result.critical ? 'CRÍTICO ' : ''
         }${result.damage} de daño${newHp <= 0 ? ' · cae' : ''}`
       : `${current.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · falla`;
+
+    if (result.hit) {
+      addAnimation('damage', result.damage, window.innerWidth / 2, window.innerHeight / 2);
+    } else {
+      addAnimation('miss', undefined, window.innerWidth / 2, window.innerHeight / 2);
+    }
 
     setTimeout(async () => {
       await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: newHp });
@@ -498,6 +527,16 @@ export const CombatScreen = () => {
             ))}
         </details>
       )}
+
+      {animationQueue.map(anim => (
+        <CombatAnimation
+          key={anim.id}
+          type={anim.type}
+          value={anim.value}
+          x={anim.x}
+          y={anim.y}
+        />
+      ))}
     </div>
   );
 };

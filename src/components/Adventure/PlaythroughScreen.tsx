@@ -40,6 +40,12 @@ export const PlaythroughScreen = () => {
   }, [viewStorageKey]);
 
   useEffect(() => {
+    return () => {
+      audioManager.stopAmbient();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!playthrough || !scene || playthrough.status !== 'active' || !optionsLoaded) return;
 
     const visibleOptions = options.filter((opt) => {
@@ -325,6 +331,19 @@ export const PlaythroughScreen = () => {
         setScene(nextScene);
         setPlaythrough({ ...playthrough, flags: newFlags, current_scene_id: nextScene.id });
         setOptionsLoaded(false);
+
+        // Reproducir audio ambiental según tipo de escena
+        try {
+          if (nextScene.scene_type === 'combate') {
+            audioManager.playAmbient('dungeon');
+          } else if (nextScene.scene_type === 'social') {
+            audioManager.playAmbient('tavern');
+          } else if (nextScene.scene_type === 'exploration') {
+            audioManager.playAmbient('forest');
+          }
+        } catch (e) {
+          console.warn('Audio not available:', e);
+        }
 
         const { data: nextOptions } = await supabase
           .from('scene_options')
