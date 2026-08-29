@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
 
 export const CampaignHome = () => {
   const { campaignId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [campaign, setCampaign] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -73,6 +75,14 @@ export const CampaignHome = () => {
           >
             📖 Wiki
           </button>
+          {campaign?.user_id === user?.id && (
+            <button
+              onClick={() => navigate(`/campaign/${campaignId}/dm-tools`)}
+              className="btn-secondary"
+            >
+              🛠️ DM Tools
+            </button>
+          )}
         </div>
         <div className="actions-tertiary">
           <button

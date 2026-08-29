@@ -180,13 +180,21 @@ export const PlaythroughLobby = () => {
   };
 
   const handleContinue = async () => {
-    // Check all players confirmed
-    const players = participants.filter((p) => p.role === 'player');
-    const allConfirmed = players.every((p) => p.confirmed);
+    if (isDM) {
+      // DM: check all players confirmed
+      const players = participants.filter((p) => p.role === 'player');
+      const allConfirmed = players.every((p) => p.confirmed);
 
-    if (!allConfirmed) {
-      setError('Todos los jugadores deben confirmar personaje');
-      return;
+      if (!allConfirmed) {
+        setError('Todos los jugadores deben confirmar personaje');
+        return;
+      }
+    } else {
+      // Player: check they confirmed
+      if (!currentUserParticipant?.confirmed) {
+        setError('Debes confirmar un personaje');
+        return;
+      }
     }
 
     navigate(`/campaign/${campaignId}/play/${playthroughId}`);
@@ -262,28 +270,43 @@ export const PlaythroughLobby = () => {
 
       {!isDM && currentUserParticipant && (
         <section className="lobby-character-select">
-          <h2>Selecciona tu personaje</h2>
+          <h2>Tu personaje</h2>
           {currentUserParticipant.confirmed ? (
             <div className="character-confirmed">
-              <p>✓ Personaje confirmado: {currentUserParticipant.character?.character_name}</p>
+              <p style={{ fontSize: '1.1rem', margin: 0, marginBottom: '1rem' }}>
+                ✓ {currentUserParticipant.character?.character_name}
+              </p>
+              <button
+                className="btn-primary btn-large"
+                onClick={handleContinue}
+                style={{ width: '100%' }}
+              >
+                Entrar a la partida →
+              </button>
             </div>
           ) : (
             <div>
-              <select
-                value={selectedCharacterId}
-                onChange={(e) => setSelectedCharacterId(e.target.value)}
-                className="form-select"
-              >
-                <option value="">-- Elige un personaje --</option>
-                {characters.map((char) => (
-                  <option key={char.id} value={char.id}>
-                    {char.character_name}
-                  </option>
-                ))}
-              </select>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+                  Elige personaje:
+                </label>
+                <select
+                  value={selectedCharacterId}
+                  onChange={(e) => setSelectedCharacterId(e.target.value)}
+                  className="form-select"
+                >
+                  <option value="">-- Seleccionar --</option>
+                  {characters.map((char) => (
+                    <option key={char.id} value={char.id}>
+                      {char.character_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <button
                 className="btn-primary"
                 onClick={() => handleConfirmCharacter(selectedCharacterId)}
+                disabled={!selectedCharacterId}
               >
                 Confirmar personaje
               </button>
@@ -294,12 +317,16 @@ export const PlaythroughLobby = () => {
 
       {isDM && (
         <section className="lobby-actions">
+          <p style={{ marginBottom: '1rem', color: 'var(--gold)', fontWeight: 600 }}>
+            Rol: DM — Esperando jugadores...
+          </p>
           <button
             className="btn-primary btn-large"
             onClick={handleContinue}
             disabled={!players.every((p) => p.confirmed)}
+            style={{ width: '100%' }}
           >
-            Continuar a la partida
+            Iniciar sesión →
           </button>
         </section>
       )}
