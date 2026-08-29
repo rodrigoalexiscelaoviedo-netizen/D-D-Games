@@ -1,0 +1,110 @@
+{
+  "adventures": [
+    {
+      "title": "El sótano de la posada",
+      "level": 1,
+      "synopsis": "Berta, posadera de El Jabalí Dormido, tiene un problema: alguien está robándose sus mejores bebidas. Los goblins son culpables, pero este es solo el comienzo de una conspiración más grande."
+    },
+    {
+      "title": "El bosque del norte",
+      "level": 2,
+      "synopsis": "Un mercader busca algo que su padre perdió hace años en el bosque. Los goblins que escaparon del sótano son la clave. Dentro del bosque, ruinas antiguas guardan secretos oscuros y una amenaza mayor acecha en la oscuridad."
+    }
+  ],
+  "scenes_sotano": [
+    {
+      "order": 1,
+      "title": "En la taberna",
+      "type": "social",
+      "dm_text": "Berta, la posadera del Jabalí Dormido, os mira con ojorosa preocupación. La taberna huele a cerveza y hogar. 'Hace tres noches que pasa. Bajo en el sótano por la mañana y faltan botellas. Las mejores. Alguien—o algo—se las está tomando. He revisado las cerraduras. No hay rastro de fuerza bruta.'",
+      "player_text": "Berta, la posadera, os explica su problema: alguien está robándose sus mejores bebidas del sótano. No hay señales de robo forzado. Busca ayuda.",
+      "options_count": 3
+    },
+    {
+      "order": 2,
+      "title": "Investigación",
+      "type": "exploration",
+      "dm_text": "El sótano es frío y húmedo. Botellas esparcidas. Un mapa viejo en la pared con una X roja. Patrón de botellas vacías: 2, 2, 2, 1. Como si alguien tomara dos cada noche.",
+      "player_text": "Exploráis el sótano. Hay tres áreas: bodega, almacén y un agujero grande en la esquina. Algo pequeño se mueve dentro.",
+      "options_count": 2
+    },
+    {
+      "order": 3,
+      "title": "Encuentro sorpresa",
+      "type": "combat_easy",
+      "dm_text": "Un goblin solo sacando una botella. Completamente desprevenido. Es vuestro turno primero. Combate de enseñanza sobre tácticas.",
+      "player_text": "Un goblin pequeño está sacando una botella del barril. No os ha visto.",
+      "options_count": 2,
+      "encounter": true
+    },
+    {
+      "order": 4,
+      "title": "La guarida",
+      "type": "combat",
+      "dm_text": "Dentro hay tres goblins: Jefe (22 HP), dos guerreros (11 HP). Pilares para cobertura. Uno intenta huir por agujero secreto (gancho para siguiente aventura).",
+      "player_text": "Entráis a la guarida. Tres goblins: uno grande con corona, dos guerreros armados. Pilares de piedra permiten cobertura.",
+      "options_count": 2,
+      "encounter": true
+    },
+    {
+      "order": 5,
+      "title": "Retorno triunfal",
+      "type": "social",
+      "dm_text": "Berta paga 50 gp con alivio. Mientras celebráis, un mercader entra, ansioso. 'Esos goblins eran míos. Trabajaban para mí. Les pago 100 gp si me dicen dónde venían. Hay algo en el bosque que necesito encontrar.'",
+      "player_text": "Berta os paga. Un mercader entra buscando a los goblins. Ofrece 100 gp por información sobre dónde venían.",
+      "options_count": 2,
+      "next_adventure_hook": true
+    }
+  ],
+  "scenes_bosque": [
+    {
+      "order": 1,
+      "title": "Preparación",
+      "type": "social",
+      "dm_text": "El mercader da detalles: su padre fue arqueólogo. Buscaba una 'Piedra de Verdad' que podría revelar secretos antiguos. Los goblins lo sabían. Deben viajar al valle del bosque del norte.",
+      "player_text": "El mercader explica: busca un artefacto antiguo perdido hace años. El valle del bosque del norte es el destino.",
+      "options_count": 2
+    },
+    {
+      "order": 2,
+      "title": "Viaje peligroso",
+      "type": "exploration",
+      "dm_text": "El camino al bosque tiene encuentros menores. Lobos (evitables), bandidos (diplomacia posible), o tomar el camino secreto que reveló el goblin capturado.",
+      "player_text": "El camino al bosque es peligroso. Hay varias rutas. ¿Cuál elegís?",
+      "options_count": 3
+    },
+    {
+      "order": 3,
+      "title": "Ruinas antiguas",
+      "type": "exploration",
+      "dm_text": "Ruinas de una civilización antigua. Puzles mágicos. Texto en idioma olvidado. Pistas sobre la Piedra de Verdad. Encuentro opcional: espíritus guardianes (combate o diplomacia).",
+      "player_text": "Encontráis ruinas antiguas. Puzles mágicos. Símbolos extraños en las paredes.",
+      "options_count": 3
+    },
+    {
+      "order": 4,
+      "title": "El valle oscuro",
+      "type": "combat",
+      "dm_text": "El verdadero peligro: una criatura antigua despierta. No es solo monstruo—es un guardián del artefacto. Diplomacia posible si revelan que buscan la Verdad, no poder.",
+      "player_text": "El bosque se oscurece. Una presencia antigua se manifiesta. ¿Combate o negociación?",
+      "options_count": 2,
+      "encounter": true
+    },
+    {
+      "order": 5,
+      "title": "La Piedra de Verdad",
+      "type": "puzzle",
+      "dm_text": "Si ganan/negocian, encuentran la Piedra. El mercader la toma. Pero: la Piedra tiene una maldición. Revela una verdad oscura sobre su padre—fue parte de un culto antiguo.",
+      "player_text": "Encontráis el artefacto. Brilla con luz antigua. El mercader lo toma con temblor.",
+      "options_count": 2
+    },
+    {
+      "order": 6,
+      "title": "Revelación",
+      "type": "social",
+      "dm_text": "De vuelta en la taberna, el mercader revela: su padre buscaba redención. El culto que le poseyó está despertando. 'Necesito vuestro ayuda para detenerlo. Hay más ruinas, más artefactos. Esto acaba de empezar.'",
+      "player_text": "De vuelta en la taberna. El mercader comparte la verdad sobre su padre y la amenaza real que se aproxima.",
+      "options_count": 1
+    }
+  ]
+}

@@ -85,12 +85,6 @@ export const CampaignHome = () => {
           )}
         </div>
         <div className="actions-tertiary">
-          <button
-            onClick={() => navigate(`/campaign/${campaignId}/combat/new`)}
-            className="btn-secondary"
-          >
-            ⚔️ Combate rápido
-          </button>
           <button onClick={handleDelete} className="btn-danger btn-small">
             Borrar
           </button>
