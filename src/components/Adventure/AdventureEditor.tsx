@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { AdventureGeneratorForm } from './AdventureGeneratorForm';
 import type { Adventure, Scene } from '../../lib/adventure-types';
 
 interface EditorState {
@@ -21,6 +22,7 @@ export const AdventureEditor = () => {
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showGenerator, setShowGenerator] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -178,6 +180,74 @@ export const AdventureEditor = () => {
     }
   };
 
+  const handleSaveGeneratedAdventure = async (generatedScenes: Scene[], sceneOptions: any[]) => {
+    if (!selectedAdventure) return;
+
+    setLoading(true);
+    try {
+      // Save scenes
+      const scenesToInsert = generatedScenes.map((scene, idx) => ({
+        adventure_id: selectedAdventure.id,
+        scene_order: idx + 1,
+        scene_type: scene.scene_type,
+        title: scene.title,
+        dm_text: scene.dm_text,
+        player_text: scene.player_text,
+        encounter: scene.encounter,
+      }));
+
+      const { data: insertedScenes, error: sceneError } = await supabase
+        .from('scenes')
+        .insert(scenesToInsert)
+        .select();
+
+      if (sceneError || !insertedScenes) {
+        throw new Error('Error al guardar escenas');
+      }
+
+      // Save scene options (map temp IDs to real ones)
+      const tempToReal = new Map();
+      generatedScenes.forEach((scene, idx) => {
+        tempToReal.set(scene.id, insertedScenes[idx].id);
+      });
+
+      const optionsToInsert = sceneOptions.map((opt) => {
+        const realSceneId = tempToReal.get(opt.scene_id);
+        const realLeadsTo = opt.leads_to_scene_id ? tempToReal.get(opt.leads_to_scene_id) : null;
+
+        return {
+          scene_id: realSceneId,
+          option_order: opt.option_order,
+          player_label: opt.player_label,
+          dm_note: opt.dm_note,
+          leads_to_scene_id: realLeadsTo,
+          sets_flag: opt.sets_flag,
+          requires_flag: opt.requires_flag,
+        };
+      });
+
+      if (optionsToInsert.length > 0) {
+        const { error: optError } = await supabase
+          .from('scene_options')
+          .insert(optionsToInsert);
+
+        if (optError) {
+          console.warn('Warning: Could not save all scene options:', optError);
+        }
+      }
+
+      // Reload scenes
+      await loadScenes(selectedAdventure.id);
+      setShowGenerator(false);
+      setError('');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error desconocido';
+      setError(`Error: ${message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="adventure-editor page-pad">
       <button className="btn-secondary" onClick={() => navigate(`/campaign/${campaignId}`)}>
@@ -314,34 +384,51 @@ export const AdventureEditor = () => {
 
           <fieldset>
             <legend>Escenas ({scenes.length})</legend>
-            {scenes.length === 0 ? (
-              <p className="empty-state">No hay escenas. Agrega una para empezar.</p>
-            ) : (
-              <div className="scenes-list">
-                {scenes.map((scene, idx) => (
-                  <div key={scene.id} className="scene-item">
-                    <span>
-                      {idx + 1}. {scene.title} ({scene.scene_type})
-                    </span>
-                    <button
-                      className="btn-secondary btn-small"
-                      onClick={() => {
-                        setState({
-                          mode: 'edit',
-                          selectedAdventureId: selectedAdventure.id,
-                          selectedSceneId: scene.id,
-                        });
-                      }}
-                    >
-                      Editar
-                    </button>
-                  </div>
-                ))}
-              </div>
+
+            {showGenerator && (
+              <AdventureGeneratorForm
+                onGenerated={handleSaveGeneratedAdventure}
+                onCancel={() => setShowGenerator(false)}
+              />
             )}
-            <button className="btn-primary" onClick={handleAddScene}>
-              + Agregar escena
-            </button>
+
+            {!showGenerator && (
+              <>
+                {scenes.length === 0 ? (
+                  <p className="empty-state">No hay escenas. Agrega una para empezar.</p>
+                ) : (
+                  <div className="scenes-list">
+                    {scenes.map((scene, idx) => (
+                      <div key={scene.id} className="scene-item">
+                        <span>
+                          {idx + 1}. {scene.title} ({scene.scene_type})
+                        </span>
+                        <button
+                          className="btn-secondary btn-small"
+                          onClick={() => {
+                            setState({
+                              mode: 'edit',
+                              selectedAdventureId: selectedAdventure.id,
+                              selectedSceneId: scene.id,
+                            });
+                          }}
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button className="btn-primary" onClick={handleAddScene}>
+                    + Agregar escena
+                  </button>
+                  <button className="btn-primary" onClick={() => setShowGenerator(true)}>
+                    ✨ Generar con IA
+                  </button>
+                </div>
+              </>
+            )}
           </fieldset>
 
           <button className="btn-secondary" onClick={() => setState({ mode: 'list' })}>
