@@ -94,6 +94,7 @@ export const AdventureList = () => {
           current_scene_id: firstScene.id,
           status: 'active',
           flags: {},
+          user_id: user?.id,
         })
         .select();
 
