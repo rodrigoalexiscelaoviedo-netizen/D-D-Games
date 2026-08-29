@@ -6,11 +6,6 @@ export default defineConfig({
   plugins: [react()],
   base: '/',
   build: {
-    rollupOptions: {
-      output: {
-        inlineDynamicImports: true,
-      },
-    },
     chunkSizeWarningLimit: 10000,
   },
 })
