@@ -28,7 +28,7 @@ export const PlaythroughScreen = () => {
   const [isDM, setIsDM] = useState(false);
   const [userRole, setUserRole] = useState<'dm' | 'player'>('player');
   const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
-  const [combatAnimations, setCombatAnimations] = useState<Array<{ id: string; type: 'attack' | 'heal' | 'damage' | 'miss'; value?: number; x: number; y: number }>>([]);
+  const [combatAnimations] = useState<Array<{ id: string; type: 'attack' | 'heal' | 'damage' | 'miss'; value?: number; x: number; y: number }>>([]);
 
   const viewStorageKey = `dnd_view_${playthroughId}`;
 
