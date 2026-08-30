@@ -17,6 +17,7 @@ import { AdventureList } from './components/Adventure/AdventureList';
 import { AdventureEditor } from './components/Adventure/AdventureEditor';
 import { PlaythroughLobby } from './components/Adventure/PlaythroughLobby';
 import { BestiaryScreen } from './components/Bestiario/BestiaryScreen';
+import { AdminDashboard } from './components/Admin/AdminDashboard';
 
 export default function App() {
   return (
@@ -142,6 +143,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <BestiaryScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminDashboard />
             </ProtectedRoute>
           }
         />

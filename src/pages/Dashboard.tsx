@@ -35,6 +35,9 @@ export const Dashboard = () => {
           <button onClick={() => navigate('/bestiary')} className="btn-secondary">
             Bestiario
           </button>
+          <button onClick={() => navigate('/admin')} className="btn-secondary">
+            ⚙️ Admin
+          </button>
           <span>{auth.user?.email}</span>
           <button onClick={handleLogout} className="btn-logout">
             Logout
