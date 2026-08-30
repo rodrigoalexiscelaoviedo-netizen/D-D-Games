@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { rollInitiative, abilityMod } from '../../lib/combat-engine';
+import { EncounterBuilder } from './EncounterBuilder';
+import type { EncounterEnemy } from './EncounterBuilder';
 
 export const CombatSetup = () => {
   const { campaignId } = useParams();
@@ -12,6 +14,7 @@ export const CombatSetup = () => {
   const [lineup, setLineup] = useState<any[]>([]);
   const [custom, setCustom] = useState({ name: '', hp: 10, armor_class: 12, damage_dice: 6, attack_bonus: 3 });
   const [showCustom, setShowCustom] = useState(false);
+  const [useBuilder, setUseBuilder] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -39,6 +42,21 @@ export const CombatSetup = () => {
     ]);
     setCustom({ name: '', hp: 10, armor_class: 12, damage_dice: 6, attack_bonus: 3 });
     setShowCustom(false);
+  };
+
+  const handleCreateEncounter = (enemies: EncounterEnemy[]) => {
+    const newEnemies = enemies.flatMap((enemy) =>
+      Array.from({ length: enemy.count }, (_, idx) => ({
+        name: enemy.count > 1 ? `${enemy.creature_name} ${idx + 1}` : enemy.creature_name,
+        hp: enemy.max_hp,
+        armor_class: enemy.ac,
+        dexterity: 10,
+        damage_dice: 6,
+        attack_bonus: 3,
+      }))
+    );
+    setLineup([...lineup, ...newEnemies]);
+    setUseBuilder(false);
   };
 
   const start = async () => {
@@ -158,13 +176,35 @@ export const CombatSetup = () => {
       {step === 2 && (
         <section className="setup-card">
           <h2>¿Contra qué pelean?</h2>
-          <p className="hint">Creá enemigos propios.</p>
 
-          {!showCustom ? (
-            <button className="btn-secondary block" onClick={() => setShowCustom(true)}>
-              + Crear enemigo
-            </button>
-          ) : (
+          {!useBuilder && !showCustom && (
+            <div className="setup-choice">
+              <button className="btn-secondary block" onClick={() => setShowCustom(true)}>
+                ⚔️ Crear enemigo personalizado
+              </button>
+              <button className="btn-secondary block" onClick={() => setUseBuilder(true)}>
+                📚 Usar bestiario (Open5e)
+              </button>
+            </div>
+          )}
+
+          {useBuilder && (
+            <div>
+              <EncounterBuilder
+                onCreateEncounter={handleCreateEncounter}
+                loading={loading}
+              />
+              <button
+                className="btn-secondary block"
+                onClick={() => setUseBuilder(false)}
+                style={{ marginTop: '12px' }}
+              >
+                ← Volver
+              </button>
+            </div>
+          )}
+
+          {!useBuilder && showCustom && (
             <div className="custom-enemy">
               <input
                 className="input-field"

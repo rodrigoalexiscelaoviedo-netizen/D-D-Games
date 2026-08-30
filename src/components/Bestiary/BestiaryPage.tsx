@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { searchCreatures, getCreaturesByCR, importOpen5eMonstersToSupabase } from '../../lib/open5e-fetcher';
 import type { Creature } from '../../lib/open5e-fetcher';
 
-export const BestiaryScreen = () => {
+export const BestiaryPage = () => {
   const navigate = useNavigate();
   const [creatures, setCreatures] = useState<Creature[]>([]);
   const [loading, setLoading] = useState(true);
