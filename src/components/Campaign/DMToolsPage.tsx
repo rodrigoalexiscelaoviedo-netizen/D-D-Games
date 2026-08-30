@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
-import { NPCManager } from './NPCManager';
-import { DungeonPlanner } from './DungeonPlanner';
+import { NPCGallery } from './NPCGallery';
+import { LocationGallery } from './LocationGallery';
 
 type Tab = 'npcs' | 'locations';
 
@@ -8,59 +8,106 @@ export const DMToolsPage = memo(() => {
   const [activeTab, setActiveTab] = useState<Tab>('npcs');
 
   return (
-    <div className="page-pad">
-      <h1>🛠️ DM Tools</h1>
+    <div className="dm-tools-page">
+      <header className="dm-tools-header">
+        <h1>🛠️ DM Tools & Preparation</h1>
+        <p>Manage NPCs, locations, encounters, and campaign preparation</p>
+      </header>
 
-      <div className="tabs">
+      <nav className="dm-tools-tabs">
         <button
           className={`tab-btn ${activeTab === 'npcs' ? 'active' : ''}`}
           onClick={() => setActiveTab('npcs')}
+          title="Manage NPCs and companions"
         >
-          Personajes (NPCs)
+          👥 NPCs & Companions
         </button>
         <button
           className={`tab-btn ${activeTab === 'locations' ? 'active' : ''}`}
           onClick={() => setActiveTab('locations')}
+          title="Manage locations and places"
         >
-          Ubicaciones
+          📍 Locations & Places
         </button>
-      </div>
+      </nav>
 
-      <div className="tab-content">
-        {activeTab === 'npcs' && <NPCManager />}
-        {activeTab === 'locations' && <DungeonPlanner />}
+      <div className="dm-tools-content">
+        {activeTab === 'npcs' && <NPCGallery />}
+        {activeTab === 'locations' && <LocationGallery />}
       </div>
 
       <style>{`
-        .tabs {
+        .dm-tools-page {
+          min-height: 100vh;
+          background: #0d0d0d;
+        }
+
+        .dm-tools-header {
+          background: #1a1a1a;
+          border-bottom: 1px solid #333;
+          padding: 24px 32px;
+        }
+
+        .dm-tools-header h1 {
+          margin: 0 0 8px 0;
+          font-size: 32px;
+          color: #fff;
+        }
+
+        .dm-tools-header p {
+          margin: 0;
+          font-size: 14px;
+          color: #999;
+        }
+
+        .dm-tools-tabs {
           display: flex;
-          gap: 1rem;
-          margin-bottom: 2rem;
-          border-bottom: 2px solid #e5e7eb;
+          gap: 12px;
+          padding: 16px 32px;
+          background: #1a1a1a;
+          border-bottom: 1px solid #333;
+          flex-wrap: wrap;
         }
 
         .tab-btn {
-          padding: 0.75rem 1.5rem;
-          background: none;
-          border: none;
-          border-bottom: 3px solid transparent;
-          cursor: pointer;
+          padding: 10px 16px;
+          background: #0d0d0d;
+          border: 1px solid #333;
+          border-radius: 6px;
+          color: #999;
+          font-size: 14px;
           font-weight: 500;
-          color: #6b7280;
-          transition: all 0.2s;
+          cursor: pointer;
+          transition: all 200ms;
         }
 
         .tab-btn:hover {
-          color: #111;
+          border-color: #666;
+          color: #ccc;
         }
 
         .tab-btn.active {
-          color: #7c3aed;
-          border-bottom-color: #7c3aed;
+          background: #a855f7;
+          border-color: #a855f7;
+          color: #fff;
         }
 
-        .tab-content {
-          margin-top: 2rem;
+        .dm-tools-content {
+          padding: 0;
+        }
+
+        @media (max-width: 768px) {
+          .dm-tools-header {
+            padding: 16px;
+          }
+
+          .dm-tools-header h1 {
+            font-size: 24px;
+          }
+
+          .dm-tools-tabs {
+            padding: 12px 16px;
+          }
         }
       `}</style>
     </div>

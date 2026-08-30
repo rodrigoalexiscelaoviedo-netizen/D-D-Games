@@ -137,6 +137,18 @@ export const BestiaryScreen = () => {
                 </p>
               </div>
 
+              <div className="creature-image-container">
+                <img
+                  src={`https://source.unsplash.com/featured/300x300?${encodeURIComponent(creature.name)}`}
+                  alt={creature.name}
+                  className="creature-image"
+                  loading="lazy"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/croodles/svg?seed=${encodeURIComponent(creature.name)}`;
+                  }}
+                />
+              </div>
+
               <div className="creature-abilities">
                 <div className="stat-block">
                   <span>STR</span> <strong>{creature.str}</strong>
@@ -280,6 +292,24 @@ export const BestiaryScreen = () => {
 
         .creature-stats {
           color: #fff !important;
+        }
+
+        .creature-image-container {
+          display: flex;
+          justify-content: center;
+          margin: 12px 0;
+          border-radius: 8px;
+          overflow: hidden;
+          background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(168, 85, 247, 0.05));
+          padding: 8px;
+        }
+
+        .creature-image {
+          width: 100%;
+          max-width: 300px;
+          height: 200px;
+          object-fit: cover;
+          border-radius: 6px;
         }
 
         .creature-abilities {
