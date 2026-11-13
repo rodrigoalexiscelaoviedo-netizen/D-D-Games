@@ -1,9 +1,12 @@
 import type { PlayerSceneData, PlayerOptionData } from '../../lib/adventure-types';
 import type { AdventureModule, ModuleScene } from '../../content/modules/types';
 import { PlayerVisuals } from './SceneVisuals';
+import { CombatWatch } from './CombatWatch';
 import './playthrough-screen.css';
 
 interface Props {
+  playthroughId?: string;
+  sceneId?: string;
   scene: PlayerSceneData;
   options: PlayerOptionData[];
   onSelectOption?: (optionId: string) => Promise<void>;
@@ -13,7 +16,7 @@ interface Props {
   flags?: Record<string, boolean>;
 }
 
-export const ScenePlayerView = ({ scene, options, onSelectOption, isLoading, module, moduleScene, flags = {} }: Props) => {
+export const ScenePlayerView = ({ playthroughId, sceneId, scene, options, onSelectOption, isLoading, module, moduleScene, flags = {} }: Props) => {
   const content =
     module && moduleScene ? (
       <PlayerVisuals module={module} scene={moduleScene} isDM={false} flags={flags} />
@@ -28,6 +31,7 @@ export const ScenePlayerView = ({ scene, options, onSelectOption, isLoading, mod
         <p className="ps-banner" role="status">
           ¡Combate! Preparen sus armas. El director dirige la pelea.
         </p>
+        {playthroughId && sceneId && <CombatWatch playthroughId={playthroughId} sceneId={sceneId} />}
       </div>
     );
   }

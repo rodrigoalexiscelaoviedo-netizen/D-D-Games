@@ -9,6 +9,7 @@
   padding: 14px 28px; background: rgba(26, 20, 16, 0.94); border-bottom: 1px solid var(--border-soft);
   position: sticky; top: 0; z-index: 20; backdrop-filter: blur(6px);
 }
+.cs-top-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .cs-top h1 { margin: 0; font-family: var(--font-title); font-size: 22px; color: var(--gold-bright); }
 .cs-eyebrow { margin: 0 0 2px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
 .cs-hint { margin: 0; font-size: 14px; color: var(--ink-muted); line-height: 1.5; }
@@ -96,6 +97,102 @@
 .cs-log summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--gold-bright); font-family: var(--font-title); }
 .cs-log ol { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; line-height: 1.5; }
 
+/* --- Fichas (retrato o inicial) --- */
+.cs-token {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  object-fit: cover;
+  font-family: var(--font-title);
+  color: var(--ink-dark);
+  background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold));
+  outline: 1px solid rgba(0, 0, 0, 0.3);
+  outline-offset: -1px;
+}
+.cs-token.is-enemy { background: radial-gradient(circle at 35% 30%, #c25a6b, var(--wine)); color: var(--ink); }
+.cs-token-sm { width: 30px; height: 30px; font-size: 12px; }
+.cs-token-lg { width: 76px; height: 76px; font-size: 26px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); margin-bottom: 6px; }
+.cs-row-name { display: inline-flex; align-items: center; gap: 10px; }
+.cs-row.is-down .cs-token { filter: grayscale(1); opacity: 0.6; }
+
+/* Muerte y caída */
+.cs-action-danger { border-color: rgba(156, 58, 74, 0.8); background: linear-gradient(160deg, rgba(156, 58, 74, 0.25), var(--bg-surface)); }
+.cs-action-danger .cs-action-title { color: #e8a0aa; }
+.cs-dead { margin: 0; padding: 10px 14px; border-radius: var(--radius); border: 1px solid var(--wine-bright); background: rgba(124, 45, 58, 0.25); color: var(--ink); }
+.cs-dead strong { color: #e8a0aa; }
+
+/* Resumen al terminar */
+.cs-reward { font-size: 18px; color: var(--ink); }
+.cs-reward strong { color: var(--gold-bright); font-family: var(--font-title); font-weight: 400; }
+.cs-levelups { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cs-levelups li { padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--gold); background: rgba(201, 162, 75, 0.14); color: var(--ink); animation: rise-in 260ms var(--ease-out) both; }
+.cs-levelups li:nth-child(2) { animation-delay: 100ms; }
+.cs-levelups li:nth-child(3) { animation-delay: 200ms; }
+.cs-levelups strong { color: var(--gold-bright); }
+.cs-levelups span { color: var(--ink-muted); font-size: 14px; }
+
+/* --- Animaciones del combate --- */
+.cs-turn, .cs-outcome { animation: rise-in 240ms var(--ease-out); }
+
+.cs-die.is-rolling { animation: die-tumble 500ms var(--ease-out); }
+@keyframes die-tumble {
+  from { transform: rotate(-220deg) scale(0.8); }
+  to { transform: rotate(0deg) scale(1); }
+}
+
+/* El resultado aparece cuando el dado ya cayó. */
+.cs-roll .cs-roll-math,
+.cs-roll .cs-roll-verdict,
+.cs-roll .cs-hint { animation: rise-in 220ms var(--ease-out) 520ms both; }
+
+.cs-roll-crit .cs-die.is-settled {
+  animation: crit-pop 600ms var(--ease-out);
+  box-shadow: 0 0 0 4px rgba(227, 189, 99, 0.35), 0 0 32px rgba(227, 189, 99, 0.65);
+}
+.cs-roll-crit .cs-roll-verdict { color: var(--gold-bright); text-shadow: 0 0 14px rgba(227, 189, 99, 0.6); }
+@keyframes crit-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.cs-roll-fumble .cs-die.is-settled {
+  background: radial-gradient(circle at 35% 30%, #c25a6b, var(--wine));
+  color: var(--ink);
+  animation: fumble-shake 420ms var(--ease-in-out);
+}
+.cs-roll-miss .cs-roll-verdict, .cs-roll-fumble .cs-roll-verdict { color: #e8a0aa; }
+.cs-roll-hit .cs-roll-verdict { color: #c7dcae; }
+@keyframes fumble-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+
+.cs-win h2 { text-shadow: 0 0 18px rgba(199, 220, 174, 0.45); }
+.cs-row.is-now { position: relative; }
+.cs-row.is-now::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--gold-bright);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-turn, .cs-outcome, .cs-die.is-rolling,
+  .cs-roll .cs-roll-math, .cs-roll .cs-roll-verdict, .cs-roll .cs-hint,
+  .cs-roll-crit .cs-die.is-settled, .cs-roll-fumble .cs-die.is-settled, .cs-levelups li { animation: none; }
+  .cs-bar-fill { transition: none; }
+}
+
 /* Escritorio */
 @media (min-width: 960px) {
   .cs-body { grid-template-columns: minmax(0, 1fr) 340px; }
@@ -106,7 +203,7 @@
 }
 
 @media (max-width: 720px) {
-  .cs-top { padding: 12px 16px; }
+  .cs-top { padding: 12px 16px; position: static; }
   .cs-hint-bar { padding: 10px 16px 0; }
   .cs-body { padding: 16px; }
   .cs-log { margin: 0 16px 24px; }

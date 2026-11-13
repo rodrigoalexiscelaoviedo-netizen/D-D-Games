@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import { cerrarCombate, cancelarCombate, resolverCombateSinCombate } from '../../lib/combat-return';
+import { cerrarCombate, cancelarCombate, resolverCombateSinCombate, type Aftermath } from '../../lib/combat-return';
 import { abilityMod, rollInitiative } from '../../lib/combat-engine';
 import type { Playthrough, Scene, SceneOption } from '../../lib/adventure-types';
 import { toPlayerScene, toPlayerOption } from '../../lib/adventure-types';
@@ -13,6 +13,20 @@ import { audioManager } from '../../lib/audio';
 import { CombatAnimation } from '../Combat/CombatAnimations';
 import { findModuleByOrigin } from '../../content/modules';
 import './playthrough-screen.css';
+import { SoundToggle } from '../UI/SoundToggle';
+
+// Resumen en una línea de lo que dejó el combate (XP, niveles, personajes estabilizados).
+const describeAftermath = (a: Aftermath): string => {
+  const parts: string[] = [
+    a.resultado === 'victory'
+      ? `Victoria: cada personaje gana ${a.xpEach} XP.`
+      : 'Derrota: la historia sigue por otro camino.',
+  ];
+  a.levelUps.forEach((l) => parts.push(`¡${l.name} sube a nivel ${l.level}!`));
+  if (a.stabilized.length) parts.push(`${a.stabilized.join(', ')} ${a.stabilized.length === 1 ? 'queda' : 'quedan'} con 1 PV.`);
+  if (a.warning) parts.push(a.warning);
+  return parts.join(' ');
+};
 
 export const PlaythroughScreen = () => {
   const { campaignId, playthroughId } = useParams();
@@ -34,6 +48,7 @@ export const PlaythroughScreen = () => {
   const [combatAnimations] = useState<Array<{ id: string; type: 'attack' | 'heal' | 'damage' | 'miss'; value?: number; x: number; y: number }>>([]);
   const [adventureOrigin, setAdventureOrigin] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [okNotice, setOkNotice] = useState<string | null>(null);
 
   const module = findModuleByOrigin(adventureOrigin);
   const moduleScene = module && scene ? module.scenes.find((s) => s.order === scene.scene_order) : undefined;
@@ -415,6 +430,20 @@ export const PlaythroughScreen = () => {
     try {
       setLoading(true);
 
+      // Si hay un combate sin terminar en esta escena, se retoma en lugar de crear otro.
+      const { data: openCombats } = await supabase
+        .from('combats')
+        .select('id, status')
+        .eq('playthrough_id', playthroughId)
+        .eq('scene_id', scene.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const lastCombat = openCombats?.[0];
+      if (lastCombat && !['finished', 'defeat', 'cancelled'].includes(lastCombat.status ?? '')) {
+        navigate(`/campaign/${campaignId}/combat/${lastCombat.id}`);
+        return;
+      }
+
       const bestiary_name = scene.encounter.bestiary_name;
       const count = scene.encounter.count;
 
@@ -564,6 +593,7 @@ export const PlaythroughScreen = () => {
       if (!result.leads_to_scene_id) {
         throw new Error('Error al resolver combate: sin destino de escena');
       }
+      setOkNotice(describeAftermath(result.aftermath));
 
       const { data: nextScene } = await supabase
         .from('scenes')
@@ -741,6 +771,8 @@ export const PlaythroughScreen = () => {
           <h1>{scene.title || `Escena ${scene.scene_order}`}</h1>
         </div>
 
+        <SoundToggle />
+
         {isDM && (
           <div className="ps-mode" role="group" aria-label="Elegí qué pantalla ves">
             <button
@@ -778,6 +810,15 @@ export const PlaythroughScreen = () => {
         </div>
       )}
 
+      {okNotice && (
+        <div className="ps-notice ps-notice-ok" role="status">
+          <p>{okNotice}</p>
+          <button className="ps-btn ps-btn-ghost" onClick={() => setOkNotice(null)}>
+            Cerrar
+          </button>
+        </div>
+      )}
+
       {/* Render combat animations overlay */}
       {combatAnimations.map((anim) => (
         <CombatAnimation key={anim.id} type={anim.type} value={anim.value} x={anim.x} y={anim.y} />
@@ -806,6 +847,8 @@ export const PlaythroughScreen = () => {
         </div>
       )}
 
+      {/* key por escena: al cambiar de escena el contenido entra con una transición suave. */}
+      <div key={scene.id} className="ps-scene">
       {(playthrough.status === 'completed' || (visibleOptions.length === 0 && scene.scene_type !== 'combate')) ? (
         <FinalAdventureScreen
           playthrough={playthrough}
@@ -818,6 +861,8 @@ export const PlaythroughScreen = () => {
       ) : userRole === 'player' || isPlayerView ? (
         // Un DM en "Vista de jugadores" ve exactamente lo que ven los jugadores (sin notas secretas).
         <ScenePlayerView
+          playthroughId={playthroughId}
+          sceneId={scene.id}
           scene={toPlayerScene(scene)}
           options={visibleOptions.map(toPlayerOption)}
           onSelectOption={handleSelectOption}
@@ -851,6 +896,7 @@ export const PlaythroughScreen = () => {
           onToggleFlag={handleToggleFlag}
         />
       )}
+      </div>
     </div>
   );
 };

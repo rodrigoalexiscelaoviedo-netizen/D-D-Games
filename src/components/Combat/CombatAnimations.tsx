@@ -20,10 +20,10 @@ export const CombatAnimation = memo(({ type, value, x = 0, y = 0 }: AnimationPro
 
   const getText = () => {
     switch (type) {
-      case 'attack': return '⚔️ Hit!';
-      case 'damage': return `-${value}`;
+      case 'attack': return '¡Golpe!';
+      case 'damage': return `−${value}`;
       case 'heal': return `+${value}`;
-      case 'miss': return 'Miss!';
+      case 'miss': return '¡Falla!';
       default: return '';
     }
   };
@@ -34,10 +34,12 @@ export const CombatAnimation = memo(({ type, value, x = 0, y = 0 }: AnimationPro
         position: 'fixed',
         left: `${x}px`,
         top: `${y}px`,
-        fontSize: '1.5rem',
+        fontSize: '1.75rem',
+        fontFamily: 'var(--font-title)',
         fontWeight: 'bold',
         color: getColor(),
-        animation: 'float-up 1s ease-out forwards',
+        // Espera a que el dado caiga (≈520 ms) para no adelantar el resultado.
+        animation: 'float-up 1s cubic-bezier(0.23, 1, 0.32, 1) 550ms both',
         pointerEvents: 'none',
         textShadow: '0 2px 4px rgba(0,0,0,0.5)',
       }}
@@ -69,6 +71,10 @@ style.textContent = `
 
   .combat-unit {
     animation: pulse-hit 0.3s ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .combat-unit { animation: none; }
   }
 `;
 document.head.appendChild(style);

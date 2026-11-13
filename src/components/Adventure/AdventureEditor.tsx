@@ -8,11 +8,13 @@ import './adventure-editor.css';
 
 type View = 'list' | 'create' | 'edit';
 
+// Los cinco tipos que acepta la base (ver adventure-types.ts).
 const SCENE_TYPES: Array<{ value: string; label: string; hint: string }> = [
   { value: 'narracion', label: 'Narración', hint: 'Se describe algo y el grupo sigue.' },
-  { value: 'exploration', label: 'Exploración', hint: 'El grupo recorre un lugar y busca cosas.' },
-  { value: 'social', label: 'Escena social', hint: 'Conversación, negociación o engaño.' },
+  { value: 'decision', label: 'Decisión', hint: 'El grupo elige entre varios caminos.' },
+  { value: 'tirada', label: 'Tirada', hint: 'El resultado depende de una prueba con dados.' },
   { value: 'combate', label: 'Combate', hint: 'Necesita un encuentro configurado y dos opciones: victoria y derrota.' },
+  { value: 'descanso', label: 'Descanso', hint: 'El grupo se recupera antes de seguir.' },
 ];
 
 const typeLabel = (value: string) => SCENE_TYPES.find((t) => t.value === value)?.label ?? value;

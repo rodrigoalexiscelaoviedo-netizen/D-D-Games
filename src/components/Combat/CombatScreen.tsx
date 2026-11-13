@@ -1,13 +1,92 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { cerrarCombate } from '../../lib/combat-return';
-import { resolveAttack, nextAliveIndex, isCombatOver, abilityMod, roll, skillCheck, getAbility } from '../../lib/combat-engine';
+import { cerrarCombate, type Aftermath } from '../../lib/combat-return';
+import {
+  resolveAttack, nextAliveIndex, isCombatOver, abilityMod, roll, skillCheck, getAbility,
+  parseDying, canAct, targetOutcome, deathSave,
+} from '../../lib/combat-engine';
 import { CombatAnimation } from './CombatAnimations';
 import type { RollResult } from '../../lib/combat-engine';
 import './combat-screen.css';
+import { audioManager } from '../../lib/audio';
+import { SoundToggle } from '../UI/SoundToggle';
 
 type Phase = 'awaiting_player' | 'awaiting_dm_continue' | 'showing_roll' | 'finished';
+
+// Ficha de cada participante: retrato si lo tiene; si no, inicial (y número del enemigo: "K2").
+const Token = ({
+  name,
+  src,
+  enemy,
+  size = 'sm',
+}: {
+  name: string;
+  src?: string | null;
+  enemy?: boolean;
+  size?: 'sm' | 'lg';
+}) => {
+  if (src) return <img className={`cs-token cs-token-${size}`} src={src} alt="" />;
+  const num = /(\d+)$/.exec(name.trim())?.[1] ?? '';
+  return (
+    <span className={`cs-token cs-token-${size} ${enemy ? 'is-enemy' : ''}`} aria-hidden="true">
+      {name.trim().charAt(0).toUpperCase()}
+      {num}
+    </span>
+  );
+};
+
+// Una frase legible para el registro del combate (lo leen DM y jugadores).
+const describeAttack = (
+  actor: string,
+  target: string,
+  ac: number,
+  result: RollResult,
+  newHp: number,
+  abilityName?: string
+): string => {
+  const numbers = `(${result.total} contra CA ${ac})`;
+  if (!result.hit) {
+    return abilityName
+      ? `${actor} usa ${abilityName} contra ${target} y falla ${numbers}.`
+      : `${actor} ataca a ${target} y falla ${numbers}.`;
+  }
+  const how = abilityName ? `${actor} usa ${abilityName} y golpea a ${target}` : `${actor} golpea a ${target}`;
+  const crit = result.critical ? ' con un crítico' : '';
+  const down = newHp <= 0 ? ` ${target} cae.` : '';
+  return `${how}${crit}: ${result.damage} de daño ${numbers}.${down}`;
+};
+
+// Dado que gira unos instantes antes de caer en el resultado real.
+// Con "reducir movimiento" activado muestra el número directamente.
+const RollingDie = ({ value }: { value: number }) => {
+  const reduce =
+    typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const [shown, setShown] = useState(reduce ? value : 1 + Math.floor(Math.random() * 20));
+  const [settled, setSettled] = useState(Boolean(reduce));
+
+  useEffect(() => {
+    if (reduce) return;
+    let ticks = 0;
+    const id = window.setInterval(() => {
+      ticks += 1;
+      if (ticks >= 10) {
+        window.clearInterval(id);
+        setShown(value);
+        setSettled(true);
+        return;
+      }
+      setShown(1 + Math.floor(Math.random() * 20));
+    }, 50);
+    return () => window.clearInterval(id);
+  }, [value, reduce]);
+
+  return (
+    <div className={`cs-die ${settled ? 'is-settled' : 'is-rolling'}`} aria-label={`Dado: ${value}`}>
+      {shown}
+    </div>
+  );
+};
 type PickingFor = 'attack' | 'ability' | null;
 
 export const CombatScreen = () => {
@@ -24,7 +103,22 @@ export const CombatScreen = () => {
   const [pickingTarget, setPickingTarget] = useState<PickingFor>(null);
   const [classMap, setClassMap] = useState<Record<string, string>>({});
   const [strMap, setStrMap] = useState<Record<string, number>>({});
+  const [inventoryMap, setInventoryMap] = useState<Record<string, any[]>>({});
+  const [portraitMap, setPortraitMap] = useState<Record<string, string | null>>({});
+  const [aftermath, setAftermath] = useState<(Aftermath & { playthroughId: string }) | null>(null);
+  const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState('');
   const [animationQueue, setAnimationQueue] = useState<Array<{ id: string; type: 'attack' | 'damage' | 'heal' | 'miss'; value?: number; x: number; y: number }>>([]);
+
+  // Sonido de cada tirada: el dado al tirarse y el resultado cuando cae (≈520 ms).
+  useEffect(() => {
+    if (!lastRoll) return;
+    audioManager.playEffect('dice');
+    const id = window.setTimeout(() => {
+      audioManager.playEffect(lastRoll.critical ? 'crit' : lastRoll.hit ? 'hit' : 'miss');
+    }, 520);
+    return () => window.clearTimeout(id);
+  }, [lastRoll]);
 
   const refetch = useCallback(async () => {
     const { data: c } = await supabase
@@ -50,16 +144,24 @@ export const CombatScreen = () => {
     if (charIds.length > 0) {
       const { data: chars } = await supabase
         .from('characters')
-        .select('id, character_class, str')
+        .select('id, character_class, str, portrait_url, inventory')
         .in('id', charIds);
+      const inv: Record<string, any[]> = {};
+      (chars || []).forEach((c) => {
+        inv[c.id] = Array.isArray(c.inventory) ? c.inventory : [];
+      });
+      setInventoryMap(inv);
       const map: Record<string, string> = {};
       const strengths: Record<string, number> = {};
+      const portraits: Record<string, string | null> = {};
       (chars || []).forEach((c) => {
         map[c.id] = c.character_class;
         strengths[c.id] = c.str;
+        portraits[c.id] = c.portrait_url ?? null;
       });
       setClassMap(map);
       setStrMap(strengths);
+      setPortraitMap(portraits);
     }
 
     const over = isCombatOver(p || []);
@@ -84,7 +186,8 @@ export const CombatScreen = () => {
   const enemies = participants.filter((p) => !p.is_player);
   const allies = participants.filter((p) => p.is_player);
   const aliveEnemies = enemies.filter((e) => e.hp_current > 0 && !e.has_fled);
-  const aliveAllies = allies.filter((a) => a.hp_current > 0);
+  // Los que caen también son blanco: un golpe más los acerca a la muerte.
+  const aliveAllies = allies.filter((a) => canAct(a));
 
   const effectiveAC = (p: any) => (p?.armor_class ?? 10) + (p?.temp_ac_bonus ?? 0);
 
@@ -93,20 +196,15 @@ export const CombatScreen = () => {
     setAnimationQueue(prev => [...prev, { id: animId, type, value, x, y }]);
     setTimeout(() => {
       setAnimationQueue(prev => prev.filter(a => a.id !== animId));
-    }, 1200);
+    }, 1800);
   };
 
-  const commitTurn = async (opts: { newLog: string[]; targetId?: string; newTargetHp?: number }) => {
+  const commitTurn = async (opts: { newLog: string[]; targetId?: string; newTargetHp?: number; targetStatus?: string }) => {
     if (opts.targetId != null && opts.newTargetHp != null) {
-      // Solo cambia el estado si cae inconsciente: así no se pierde una esquiva activa.
-      await supabase
-        .from('combat_participants')
-        .update(
-          opts.newTargetHp <= 0
-            ? { hp_current: opts.newTargetHp, status: 'unconscious' }
-            : { hp_current: opts.newTargetHp }
-        )
-        .eq('id', opts.targetId);
+      // Solo cambia el estado si corresponde (caer, morir, esquivar): no se pierde una esquiva activa.
+      const patch: { hp_current: number; status?: string } = { hp_current: opts.newTargetHp };
+      if (opts.targetStatus !== undefined) patch.status = opts.targetStatus;
+      await supabase.from('combat_participants').update(patch).eq('id', opts.targetId);
     }
 
     const { data: fresh } = await supabase
@@ -164,12 +262,9 @@ export const CombatScreen = () => {
     setLastRoll({ ...result, actorName: current.name, targetName: target.name });
     setPhase('showing_roll');
 
-    const newHp = result.hit ? Math.max(0, target.hp_current - result.damage) : target.hp_current;
-    const line = result.hit
-      ? `${current.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · ${
-          result.critical ? 'CRÍTICO ' : ''
-        }${result.damage} de daño${newHp <= 0 ? ' · cae' : ''}`
-      : `${current.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · falla`;
+    const outcome = targetOutcome(target, result);
+    const newHp = outcome.hp;
+    const line = describeAttack(current.name, target.name, effectiveAC(target), result, newHp);
 
     if (result.hit) {
       addAnimation('damage', result.damage, window.innerWidth / 2, window.innerHeight / 2);
@@ -178,9 +273,9 @@ export const CombatScreen = () => {
     }
 
     setTimeout(async () => {
-      await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: newHp });
+      await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: newHp, targetStatus: outcome.status });
       setBusy(false);
-    }, 1600);
+    }, 2200);
   };
 
   const doDefend = async () => {
@@ -203,6 +298,7 @@ export const CombatScreen = () => {
 
     if (ability.kind === 'heal') {
       const healed = roll(ability.healDice ?? 8) + 2;
+      audioManager.playEffect('heal');
       const newHp = Math.min(current.hp_max, current.hp_current + healed);
       addAnimation('heal', healed, window.innerWidth / 2, window.innerHeight / 2);
       await supabase
@@ -246,12 +342,9 @@ export const CombatScreen = () => {
     });
     setPhase('showing_roll');
 
-    const newHp = result.hit ? Math.max(0, target.hp_current - result.damage) : target.hp_current;
-    const line = result.hit
-      ? `${current.name} usa ${ability.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · ${
-          result.critical ? 'CRÍTICO ' : ''
-        }${result.damage} de daño${newHp <= 0 ? ' · cae' : ''}`
-      : `${current.name} usa ${ability.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · falla`;
+    const outcome = targetOutcome(target, result);
+    const newHp = outcome.hp;
+    const line = describeAttack(current.name, target.name, effectiveAC(target), result, newHp, ability.name);
 
     if (result.hit) {
       addAnimation('damage', result.damage, window.innerWidth / 2, window.innerHeight / 2);
@@ -262,9 +355,9 @@ export const CombatScreen = () => {
     await supabase.from('combat_participants').update({ ability_used: true }).eq('id', current.id);
 
     setTimeout(async () => {
-      await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: newHp });
+      await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: newHp, targetStatus: outcome.status });
       setBusy(false);
-    }, 1600);
+    }, 2200);
   };
 
   const doFlee = async () => {
@@ -297,7 +390,73 @@ export const CombatScreen = () => {
     setTimeout(async () => {
       await commitTurn({ newLog: [...log, line] });
       setBusy(false);
-    }, 1600);
+    }, 2200);
+  };
+
+  // Poción de curación (5e): recupera 2d4 + 2 PV y gasta una del inventario. Usa el turno.
+  const POTION = /poci[oó]n de curaci[oó]n/i;
+  const potionIndex = (inv: any[]) => inv.findIndex((it) => POTION.test(String(it?.name ?? '')));
+  const doPotion = async () => {
+    if (busy || !current || !current.character_id) return;
+    const inv = [...(inventoryMap[current.character_id] ?? [])];
+    const idx = potionIndex(inv);
+    if (idx < 0) return;
+    setBusy(true);
+
+    const healed = roll(4) + roll(4) + 2;
+    const newHp = Math.min(current.hp_max, current.hp_current + healed);
+    const name = String(inv[idx].name);
+    const qty = Number(/x(\d+)\s*$/i.exec(name)?.[1] ?? 1);
+    const base = name.replace(/\s*x\d+\s*$/i, '');
+    if (qty > 1) inv[idx] = { ...inv[idx], name: `${base} x${qty - 1}` };
+    else inv.splice(idx, 1);
+
+    await supabase.from('characters').update({ inventory: inv }).eq('id', current.character_id);
+    await supabase
+      .from('combat_participants')
+      .update({ hp_current: newHp, status: 'ready' })
+      .eq('id', current.id);
+    setInventoryMap((m) => ({ ...m, [current.character_id]: inv }));
+
+    const line = `${current.name} bebe una poción de curación y recupera ${newHp - current.hp_current} PV (${newHp}/${current.hp_max}).`;
+    setLastRoll(null);
+    setPhase('showing_roll');
+    setTimeout(async () => {
+      await commitTurn({ newLog: [...log, line] });
+      setBusy(false);
+    }, 1400);
+  };
+
+  // Al empezar su turno, quien cae tira la salvación contra la muerte (5e): d20 de 10 o más es un éxito.
+  const doDeathSave = async () => {
+    if (busy || !current) return;
+    setBusy(true);
+    const save = deathSave(current);
+    const who = current.name;
+    setLastRoll({
+      d20: save.d20,
+      bonus: 0,
+      total: save.d20,
+      targetAC: 10,
+      hit: save.d20 >= 10,
+      critical: save.d20 === 20,
+      fumble: save.d20 === 1,
+      damage: 0,
+      explanation: `${who} ${save.text}.`,
+      actorName: `${who} · salvación contra la muerte`,
+      targetName: '',
+    } as any);
+    setPhase('showing_roll');
+
+    const line = `${who} tira contra la muerte: ${save.text}.`;
+    await supabase
+      .from('combat_participants')
+      .update({ hp_current: save.hp, status: save.status })
+      .eq('id', current.id);
+    setTimeout(async () => {
+      await commitTurn({ newLog: [...log, line] });
+      setBusy(false);
+    }, 2200);
   };
 
   const runEnemyTurn = async () => {
@@ -320,12 +479,9 @@ export const CombatScreen = () => {
     setLastRoll({ ...result, actorName: current.name, targetName: target.name });
     setPhase('showing_roll');
 
-    const newHp = result.hit ? Math.max(0, target.hp_current - result.damage) : target.hp_current;
-    const line = result.hit
-      ? `${current.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · ${
-          result.critical ? 'CRÍTICO ' : ''
-        }${result.damage} de daño${newHp <= 0 ? ' · cae' : ''}`
-      : `${current.name} → ${target.name}: ${result.total} vs CA ${effectiveAC(target)} · falla`;
+    const outcome = targetOutcome(target, result);
+    const newHp = outcome.hp;
+    const line = describeAttack(current.name, target.name, effectiveAC(target), result, newHp);
 
     if (result.hit) {
       addAnimation('damage', result.damage, window.innerWidth / 2, window.innerHeight / 2);
@@ -334,40 +490,45 @@ export const CombatScreen = () => {
     }
 
     setTimeout(async () => {
-      await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: newHp });
+      await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: newHp, targetStatus: outcome.status });
       setBusy(false);
-    }, 1600);
+    }, 2200);
   };
 
+  // Cierra el combate: guarda vida, reparte XP y sube de nivel. Muestra el resumen
+  // antes de volver a la aventura (antes saltaba directo y no se veía nada).
   const closeCombat = async (resultado: 'victory' | 'defeat') => {
-    if (!combat || !combatId) return;
+    if (!combat || !combatId || closing || aftermath) return;
+    setClosing(true);
+    setCloseError('');
 
-    if (combat.playthrough_id && combat.scene_id) {
-      await cerrarCombate(combat.playthrough_id, combat.scene_id, resultado, combatId);
-      navigate(`/campaign/${campaignId}/play/${combat.playthrough_id}`);
-    } else {
-      const statusToSet = resultado === 'victory' ? 'finished' : 'defeat';
-      await supabase
-        .from('combats')
-        .update({ status: statusToSet })
-        .eq('id', combatId);
-      navigate(`/campaign/${campaignId}`);
+    try {
+      if (combat.playthrough_id && combat.scene_id) {
+        const res = await cerrarCombate(combat.playthrough_id, combat.scene_id, resultado, combatId);
+        setAftermath({ ...res.aftermath, playthroughId: combat.playthrough_id });
+      } else {
+        await supabase
+          .from('combats')
+          .update({ status: resultado === 'victory' ? 'finished' : 'defeat' })
+          .eq('id', combatId);
+        navigate(`/campaign/${campaignId}`);
+      }
+    } catch (err) {
+      setCloseError(err instanceof Error ? err.message : 'No se pudo cerrar el combate.');
+    } finally {
+      setClosing(false);
     }
+  };
+
+  // Salir sin terminar: el combate queda guardado y se puede retomar desde la escena.
+  const leave = () => {
+    if (combat?.playthrough_id) navigate(`/campaign/${campaignId}/play/${combat.playthrough_id}`);
+    else navigate(`/campaign/${campaignId}`);
   };
 
   const finish = async () => {
     const outcome = isCombatOver(participants);
-    if (outcome) {
-      await closeCombat(outcome);
-    } else {
-      if (!combat) return;
-      const statusToSet = 'finished';
-      await supabase
-        .from('combats')
-        .update({ status: statusToSet })
-        .eq('id', combatId);
-      navigate(`/campaign/${campaignId}`);
-    }
+    if (outcome) await closeCombat(outcome);
   };
 
   if (loading) {
@@ -383,7 +544,11 @@ export const CombatScreen = () => {
 
   const rowStatus = (p: any) => {
     if (p.has_fled) return 'Huyó';
-    if (p.hp_current <= 0) return 'Caído';
+    if (p.status === 'dead') return 'Muerto';
+    const dy = parseDying(p.status);
+    if (dy.dying) return `Cayendo · ${dy.successes}✓ ${dy.failures}✗`;
+    if (p.status === 'stable') return 'Inconsciente, estable';
+    if (p.hp_current <= 0) return p.is_player ? 'Caído' : 'Derrotado';
     return `${p.hp_current}/${p.hp_max} PV`;
   };
 
@@ -396,8 +561,11 @@ export const CombatScreen = () => {
         <li key={p.id} className={`cs-row ${isCurrent ? 'is-now' : ''} ${down ? 'is-down' : ''}`}>
           <div className="cs-row-head">
             <span className="cs-row-name">
-              {isCurrent && <span className="cs-row-turn">Juega ahora · </span>}
-              {p.name}
+              <Token name={p.name} src={p.is_player ? portraitMap[p.character_id] : null} enemy={!p.is_player} size="sm" />
+              <span>
+                {isCurrent && <span className="cs-row-turn">Juega ahora · </span>}
+                {p.name}
+              </span>
             </span>
             <span className="cs-row-status">
               {rowStatus(p)}
@@ -425,9 +593,12 @@ export const CombatScreen = () => {
           <p className="cs-eyebrow">Combate en curso</p>
           <h1>Ronda {Math.max(1, combat?.round ?? 1)}</h1>
         </div>
-        <button className="cs-btn cs-btn-ghost" onClick={finish}>
-          Salir del combate
-        </button>
+        <div className="cs-top-actions">
+          <SoundToggle />
+          <button className="cs-btn cs-btn-ghost" onClick={leave} title="El combate queda guardado y lo podés retomar desde la escena">
+            Pausar y volver
+          </button>
+        </div>
       </header>
 
       <p className="cs-hint-bar">
@@ -436,22 +607,59 @@ export const CombatScreen = () => {
 
       <div className="cs-body">
         <section className="cs-stage" aria-live="polite">
-          {outcome === 'victory' && (
-            <div className="cs-outcome cs-win">
-              <h2>¡Ganaron!</h2>
-              <p>Ya no queda ningún enemigo en pie.</p>
-              <button className="cs-btn cs-btn-primary" onClick={finish}>
-                Volver a la aventura
+          {aftermath && (
+            <div className={`cs-outcome ${aftermath.resultado === 'victory' ? 'cs-win' : 'cs-lose'}`}>
+              <h2>{aftermath.resultado === 'victory' ? '¡Victoria!' : 'Derrota'}</h2>
+              {aftermath.resultado === 'victory' ? (
+                <p className="cs-reward">
+                  Cada personaje gana <strong>{aftermath.xpEach} XP</strong>
+                  {aftermath.xpTotal > 0 && <span> ({aftermath.xpTotal} XP en total)</span>}.
+                </p>
+              ) : (
+                <p>El grupo cae ante sus enemigos. La historia sigue por otro camino.</p>
+              )}
+              {aftermath.levelUps.length > 0 && (
+                <ul className="cs-levelups">
+                  {aftermath.levelUps.map((l) => (
+                    <li key={l.name}>
+                      ¡<strong>{l.name}</strong> sube a nivel {l.level}! <span>+{l.hpGain} PV máximos</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {aftermath.stabilized.length > 0 && (
+                <p className="cs-hint">
+                  {aftermath.stabilized.join(', ')} {aftermath.stabilized.length === 1 ? 'queda' : 'quedan'} con 1 PV: se estabiliza
+                  {aftermath.stabilized.length === 1 ? '' : 'n'} después del golpe.
+                </p>
+              )}
+              {aftermath.dead.length > 0 && (
+                <p className="cs-dead" role="status">
+                  Murió: <strong>{aftermath.dead.join(', ')}</strong>. Sin revivir, no vuelve a jugar esta campaña.
+                </p>
+              )}
+              <p className="cs-hint">La vida de cada personaje quedó guardada. Pueden descansar desde la escena.</p>
+              {aftermath.warning && <p className="cs-hint">{aftermath.warning}</p>}
+              <button
+                className="cs-btn cs-btn-primary"
+                onClick={() => navigate(`/campaign/${campaignId}/play/${aftermath.playthroughId}`)}
+              >
+                Continuar la aventura →
               </button>
             </div>
           )}
 
-          {outcome === 'defeat' && (
-            <div className="cs-outcome cs-lose">
-              <h2>El grupo cayó</h2>
-              <p>Todos los personajes están inconscientes.</p>
-              <button className="cs-btn cs-btn-primary" onClick={finish}>
-                Volver a la aventura
+          {!aftermath && outcome && (
+            <div className={`cs-outcome ${outcome === 'victory' ? 'cs-win' : 'cs-lose'}`}>
+              <h2>{outcome === 'victory' ? '¡Ganaron!' : 'El grupo cayó'}</h2>
+              <p>
+                {outcome === 'victory'
+                  ? 'Ya no queda ningún enemigo en pie.'
+                  : 'Todos los personajes están inconscientes.'}
+              </p>
+              {closeError && <p className="cs-hint" role="alert">{closeError}</p>}
+              <button className="cs-btn cs-btn-primary" onClick={finish} disabled={closing}>
+                {closing ? 'Guardando…' : outcome === 'victory' ? 'Repartir recompensas' : 'Ver qué pasa'}
               </button>
             </div>
           )}
@@ -463,9 +671,7 @@ export const CombatScreen = () => {
               }`}
             >
               <p className="cs-roll-who">{lastRoll.actorName}</p>
-              <div className="cs-die" aria-label={`Dado: ${lastRoll.d20}`}>
-                {lastRoll.d20}
-              </div>
+              <RollingDie key={`${lastRoll.actorName}-${log.length}`} value={lastRoll.d20} />
               <p className="cs-roll-math">
                 {lastRoll.d20} {lastRoll.bonus >= 0 ? '+' : '−'} {Math.abs(lastRoll.bonus)} ={' '}
                 <strong>{lastRoll.total}</strong> contra la CA {lastRoll.targetAC}
@@ -480,6 +686,9 @@ export const CombatScreen = () => {
 
           {!outcome && phase === 'awaiting_player' && (
             <div className="cs-turn">
+              {current && (
+                <Token name={current.name} src={portraitMap[current.character_id]} size="lg" />
+              )}
               <p className="cs-eyebrow">Le toca a</p>
               <h2>{current?.name}</h2>
               <p className="cs-hint">
@@ -492,6 +701,7 @@ export const CombatScreen = () => {
 
           {!outcome && phase === 'awaiting_dm_continue' && (
             <div className="cs-turn cs-turn-enemy">
+              {current && <Token name={current.name} enemy size="lg" />}
               <p className="cs-eyebrow">Le toca al enemigo</p>
               <h2>{current?.name}</h2>
               <p className="cs-hint">Contá qué hace y después tocá “Continuar”.</p>
@@ -509,8 +719,19 @@ export const CombatScreen = () => {
 
           {phase === 'showing_roll' && <p className="cs-hint">Resolviendo el turno…</p>}
 
+          {phase === 'awaiting_player' && current && parseDying(current.status).dying && (
+            <button className="cs-action cs-action-main cs-action-danger" disabled={busy} onClick={doDeathSave}>
+              <span className="cs-action-title">Tirar contra la muerte</span>
+              <span className="cs-action-sub">
+                Está cayendo: {parseDying(current.status).successes} éxitos y {parseDying(current.status).failures} fallos.
+                Con un 10 o más suma un éxito; tres éxitos lo estabilizan, tres fallos lo matan.
+              </span>
+            </button>
+          )}
+
           {phase === 'awaiting_player' &&
             !pickingTarget &&
+            !(current && parseDying(current.status).dying) &&
             (() => {
               const ability = getAbility(classMap[current?.character_id]);
               const abilitySpent = current?.ability_used;
@@ -550,6 +771,17 @@ export const CombatScreen = () => {
                     <span className="cs-action-title">Huir</span>
                     <span className="cs-action-sub">Regla casera: tirá Destreza. Con 12 o más, escapa del combate.</span>
                   </button>
+
+                  {current?.character_id && potionIndex(inventoryMap[current.character_id] ?? []) >= 0 && (
+                    <button className="cs-action" disabled={busy || current.hp_current >= current.hp_max} onClick={doPotion}>
+                      <span className="cs-action-title">Usar poción de curación</span>
+                      <span className="cs-action-sub">
+                        {current.hp_current >= current.hp_max
+                          ? 'Ya tiene la vida completa.'
+                          : 'Recupera 2d4 + 2 PV y gasta una del inventario.'}
+                      </span>
+                    </button>
+                  )}
                 </>
               );
             })()}

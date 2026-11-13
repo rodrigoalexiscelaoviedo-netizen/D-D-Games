@@ -185,7 +185,7 @@ export const EncounterPrepView = ({ campaignId, scene, onInitiateCombat, isLoadi
 
       {onInitiateCombat && (
         <button className="ps-btn ps-btn-primary pe-start" onClick={onInitiateCombat} disabled={isLoading}>
-          Empezar el combate en pantalla
+          Empezar o retomar el combate
         </button>
       )}
     </div>

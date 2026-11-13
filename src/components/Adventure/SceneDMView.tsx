@@ -2,6 +2,7 @@ import { EncounterPrepView } from '../Combat/EncounterPrepView';
 import type { Scene, SceneOption } from '../../lib/adventure-types';
 import type { AdventureModule, ModuleScene } from '../../content/modules/types';
 import { DMVisuals } from './SceneVisuals';
+import { PartyPanel } from './PartyPanel';
 import './playthrough-screen.css';
 
 interface Props {
@@ -25,9 +26,11 @@ interface Props {
 }
 
 const SCENE_TYPE_LABEL: Record<string, string> = {
+  narracion: 'Narración',
+  decision: 'Decisión',
+  tirada: 'Tirada',
   combate: 'Combate',
-  social: 'Escena social',
-  exploration: 'Exploración',
+  descanso: 'Descanso',
 };
 
 const paragraphs = (text: string) =>
@@ -66,6 +69,14 @@ export const SceneDMView = ({
             Escena {scene.scene_order} de {sceneCount} · {SCENE_TYPE_LABEL[scene.scene_type] ?? scene.scene_type}
           </p>
         ) : null}
+
+        {scene.scene_type === 'descanso' && (
+          <p className="ps-notice ps-notice-ok" role="status">
+            Escena de descanso: el grupo puede recuperarse. Usá “Descanso corto” o “Descanso largo” en el panel del grupo.
+          </p>
+        )}
+
+        {campaignId && <PartyPanel campaignId={campaignId} />}
 
         {isModule && module && moduleScene && (
           <DMVisuals module={module} scene={moduleScene} isDM flags={flags} onToggleFlag={onToggleFlag} />
