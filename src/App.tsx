@@ -14,6 +14,8 @@ import { CampaignWiki } from './components/Campaign/CampaignWiki';
 import { DMToolsPage } from './components/Campaign/DMToolsPage';
 import { PlaythroughScreen } from './components/Adventure/PlaythroughScreen';
 import { AdventureList } from './components/Adventure/AdventureList';
+import { ModuleLibrary } from './components/Adventure/ModuleLibrary';
+import { ModulePreview } from './components/Adventure/ModulePreview';
 import { AdventureEditor } from './components/Adventure/AdventureEditor';
 import { PlaythroughLobby } from './components/Adventure/PlaythroughLobby';
 import { BestiaryScreen } from './components/Bestiario/BestiaryScreen';
@@ -98,6 +100,23 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/campaign/:campaignId/modules"
+          element={
+            <ProtectedRoute>
+              <ModuleLibrary />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/campaign/:campaignId/modules/:slug"
+          element={
+            <ProtectedRoute>
+              <ModulePreview />
+            </ProtectedRoute>
+          }
+        />
+        {import.meta.env.DEV && <Route path="/dev/modules/:slug" element={<ModulePreview />} />}
         <Route
           path="/campaign/:campaignId/admin/adventures"
           element={

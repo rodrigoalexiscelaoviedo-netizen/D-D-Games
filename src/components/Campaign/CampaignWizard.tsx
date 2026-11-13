@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Guidebook } from '../Layout/Guidebook';
 import { Step } from '../Shared/Step';
+import { SYSTEM_LABEL, PLAYSTYLE_LABEL, TONE_LABEL } from '../../lib/labels';
 
 export const CampaignWizard = () => {
   const navigate = useNavigate();
@@ -123,9 +124,9 @@ export const CampaignWizard = () => {
           <Step title="Paso 4: Confirmación">
             <div className="summary">
               <p><strong>Campaña:</strong> {data.name || '(sin nombre)'}</p>
-              <p><strong>Sistema:</strong> {data.system}</p>
-              <p><strong>Estilo:</strong> {data.playstyle}</p>
-              <p><strong>Tono:</strong> {data.tone}</p>
+              <p><strong>Sistema:</strong> {SYSTEM_LABEL[data.system] ?? data.system}</p>
+              <p><strong>Estilo:</strong> {PLAYSTYLE_LABEL[data.playstyle] ?? data.playstyle}</p>
+              <p><strong>Tono:</strong> {TONE_LABEL[data.tone] ?? data.tone}</p>
             </div>
           </Step>
         )}

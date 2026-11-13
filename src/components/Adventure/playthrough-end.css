@@ -1,0 +1,67 @@
+/* Final de aventura y preparación de encuentros — tokens globales (src/styles/tokens.css) */
+
+.pe { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; color: var(--ink); font-family: var(--font-body); }
+
+/* Cabecera del final */
+.pe-hero {
+  padding: 28px 26px;
+  text-align: center;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-gold);
+  background: radial-gradient(700px 220px at 50% -20%, rgba(201, 162, 75, 0.18), transparent 70%), var(--bg-surface);
+}
+.pe-victoria, .pe-victory { border-color: rgba(110, 140, 90, 0.7); }
+.pe-defeat { border-color: rgba(156, 58, 74, 0.7); }
+.pe-eyebrow { margin: 0 0 6px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.pe-hero h1 { margin: 0; font-family: var(--font-title); font-size: clamp(28px, 4.5vw, 40px); color: var(--gold-bright); }
+.pe-lede { margin: 10px auto 0; max-width: 560px; color: var(--ink-muted); line-height: 1.5; }
+
+.pe-notice { padding: 12px 16px; border-radius: var(--radius); background: rgba(124, 45, 58, 0.25); border: 1px solid var(--wine-bright); }
+.pe-hint { margin: 0; font-size: 14px; color: var(--ink-muted); line-height: 1.5; }
+
+/* Historia del final */
+.pe-story { display: flex; flex-direction: column; gap: 18px; }
+.pe-dm-note { display: flex; flex-direction: column; gap: 8px; padding: 18px; background: var(--bg-surface); border: 1px solid rgba(156, 58, 74, 0.55); border-radius: var(--radius); }
+.pe-dm-note p { margin: 0; line-height: 1.6; }
+.pe-rewards { padding: 18px 20px; background: var(--bg-surface); border: 1px solid var(--border-soft); border-radius: var(--radius); }
+.pe-rewards h2, .pe-log h2, .pe-encounter h2 { margin: 0 0 8px; font-family: var(--font-title); font-size: 18px; color: var(--gold-bright); font-weight: 400; }
+.pe-rewards ul { margin: 0; padding-left: 20px; line-height: 1.7; }
+.pe-next { margin: 0; text-align: center; color: var(--ink-muted); }
+
+/* Registro */
+.pe-log { padding: 20px 22px; background: var(--bg-surface); border: 1px solid var(--border-soft); border-radius: var(--radius); }
+.pe-log-list { margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.pe-log-item { display: flex; gap: 12px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--border-soft); }
+.pe-log-type { flex-shrink: 0; min-width: 84px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); }
+.pe-log-text { color: var(--ink); line-height: 1.5; }
+
+/* Acciones del final */
+.pe-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 20px; border: 1px dashed var(--border-gold); border-radius: var(--radius); }
+.pe-action-title { margin: 0 0 4px; font-family: var(--font-title); color: var(--gold-bright); }
+
+/* Preparación del encuentro */
+.pe-encounter { display: flex; flex-direction: column; gap: 14px; }
+.pe-encounter-head { display: flex; flex-direction: column; gap: 4px; }
+.pe-enemies { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.pe-enemy { padding: 14px 16px; background: var(--bg-base); border: 1px solid var(--border-soft); border-radius: var(--radius); display: flex; flex-direction: column; gap: 6px; }
+.pe-enemy-main { display: flex; align-items: baseline; gap: 10px; }
+.pe-enemy-count { font-family: var(--font-title); color: var(--gold); }
+.pe-enemy-name { font-family: var(--font-title); font-size: 17px; color: var(--gold-bright); }
+.pe-difficulty { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink); }
+.pe-tone-easy { border-left: 3px solid #8fae6f; padding-left: 10px; }
+.pe-tone-fair { border-left: 3px solid var(--gold); padding-left: 10px; }
+.pe-tone-hard { border-left: 3px solid #d08a3a; padding-left: 10px; }
+.pe-tone-deadly { border-left: 3px solid var(--wine-bright); padding-left: 10px; }
+
+.pe-help { padding: 12px 14px; border: 1px solid var(--border-soft); border-radius: var(--radius); color: var(--ink-muted); }
+.pe-help summary { cursor: pointer; color: var(--gold-bright); min-height: 44px; display: flex; align-items: center; }
+.pe-help ul { margin: 8px 0 0; padding-left: 20px; line-height: 1.7; }
+
+.pe-start { align-self: flex-start; }
+
+@media (max-width: 720px) {
+  .pe-hero { padding: 22px 16px; }
+  .pe-log-item { flex-direction: column; gap: 2px; }
+  .pe-log-type { min-width: 0; }
+  .pe-start { align-self: stretch; }
+}

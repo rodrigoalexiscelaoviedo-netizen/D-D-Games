@@ -1,29 +1,40 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import { CharacterAvatar } from '../CharacterAvatar';
+import './playthrough-lobby.css';
+
+interface LobbyCharacter {
+  id: string;
+  character_name: string;
+  campaign_id: string;
+  race?: string | null;
+  character_class?: string | null;
+  level?: number | null;
+  portrait_url?: string | null;
+}
 
 interface Participant {
   id: string;
   playthrough_id: string;
   user_id: string;
-  character_id?: string;
+  character_id?: string | null;
   role: 'dm' | 'player';
   confirmed: boolean;
   joined_at: string;
-  character?: {
-    id: string;
-    character_name: string;
-  };
-  user_email?: string;
+  character?: LobbyCharacter | null;
 }
 
-interface Character {
-  id: string;
-  character_name: string;
-  campaign_id: string;
-}
+const Portrait = ({ name, src }: { name: string; src?: string | null }) =>
+  src ? (
+    <img className="pl-portrait" src={src} alt="" />
+  ) : (
+    <div className="pl-portrait pl-portrait-empty" aria-hidden="true">
+      {name.charAt(0).toUpperCase() || '?'}
+    </div>
+  );
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export const PlaythroughLobby = () => {
   const { campaignId, playthroughId } = useParams();
@@ -32,100 +43,92 @@ export const PlaythroughLobby = () => {
 
   const [playthrough, setPlaythrough] = useState<any>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
-  const [characters, setCharacters] = useState<Character[]>([]);
+  const [characters, setCharacters] = useState<LobbyCharacter[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUserParticipant, setCurrentUserParticipant] = useState<Participant | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState('');
   const [error, setError] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    loadLobby();
+    void loadLobby();
   }, [playthroughId, campaignId]);
 
   const loadLobby = async () => {
     if (!playthroughId || !campaignId) return;
     setLoading(true);
-
     try {
-      // Load playthrough
-      const { data: pt } = await supabase
+      const { data: pt, error: ptErr } = await supabase
         .from('playthroughs')
         .select('*')
         .eq('id', playthroughId)
         .single();
-
-      if (!pt) throw new Error('Partida no encontrada');
+      if (ptErr || !pt) throw new Error('Partida no encontrada');
       setPlaythrough(pt);
 
-      // Load participants
-      const { data: parts } = await supabase
+      const { data: chars } = await supabase
+        .from('characters')
+        .select('id, character_name, campaign_id, race, character_class, level, portrait_url')
+        .eq('campaign_id', campaignId);
+      const charList = (chars ?? []) as LobbyCharacter[];
+      setCharacters(charList);
+      const charById = new Map(charList.map((c) => [c.id, c]));
+
+      const { data: parts, error: partsErr } = await supabase
         .from('playthrough_participants')
         .select('*')
         .eq('playthrough_id', playthroughId);
+      if (partsErr) throw partsErr;
 
-      if (parts) {
-        const enriched = await Promise.all(
-          parts.map(async (p) => {
-            let char = null;
-            if (p.character_id) {
-              const { data: c } = await supabase
-                .from('characters')
-                .select('id, character_name')
-                .eq('id', p.character_id)
-                .single();
-              char = c;
-            }
-            return { ...p, character: char };
-          })
-        );
-        setParticipants(enriched);
-
-        const current = enriched.find((p) => p.user_id === user?.id);
-        setCurrentUserParticipant(current || null);
-      }
-
-      // Load characters for this campaign
-      const { data: chars } = await supabase
-        .from('characters')
-        .select('id, character_name, campaign_id')
-        .eq('campaign_id', campaignId);
-
-      setCharacters(chars || []);
+      setParticipants(
+        (parts ?? []).map((p: any) => ({
+          ...p,
+          character: p.character_id ? charById.get(p.character_id) ?? null : null,
+        }))
+      );
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error desconocido';
-      setError(`Error: ${message}`);
+      setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       setLoading(false);
     }
   };
 
   const isDM = playthrough?.user_id === user?.id;
+  const currentUserParticipant = useMemo(
+    () => participants.find((p) => p.user_id === user?.id) ?? null,
+    [participants, user?.id]
+  );
+  const dm = participants.find((p) => p.role === 'dm');
+  const players = participants.filter((p) => p.role === 'player');
+  const readyCount = players.filter((p) => p.confirmed).length;
+  const allReady = players.every((p) => p.confirmed);
 
   const handleInvitePlayer = async () => {
-    if (!inviteEmail.trim()) {
-      setError('Ingresa un email válido');
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email) {
+      setError('Ingresá un email válido');
       return;
     }
 
+    setBusy(true);
+    setError('');
     try {
-      // Get user by email (simple: find by email in auth)
-      const { data: userData } = await supabase.auth.admin.listUsers();
-      const invitedUser = userData.users.find((u) => u.email === inviteEmail);
-
-      if (!invitedUser) {
-        setError('Usuario no encontrado');
-        return;
+      // Nota: auth.admin requiere la service key; desde el navegador no funciona.
+      // Pendiente: reemplazar por una función de servidor segura.
+      const { data: userData, error: listErr } = await supabase.auth.admin.listUsers();
+      if (listErr || !userData) {
+        throw new Error(
+          'Invitar por email necesita una función del servidor. Todavía no está disponible desde acá.'
+        );
       }
 
-      // Check if already invited
-      const existing = participants.find((p) => p.user_id === invitedUser.id);
-      if (existing) {
-        setError('Este jugador ya está invitado');
-        return;
+      const invitedUser = userData.users.find((u) => u.email?.toLowerCase() === email);
+      if (!invitedUser) throw new Error('Usuario no encontrado');
+
+      if (participants.some((p) => p.user_id === invitedUser.id)) {
+        throw new Error('Este jugador ya está invitado');
       }
 
-      // Add participant
       const { data: newPart, error: insertError } = await supabase
         .from('playthrough_participants')
         .insert({
@@ -140,196 +143,274 @@ export const PlaythroughLobby = () => {
         throw new Error('No se pudo agregar el jugador');
       }
 
-      setParticipants([...participants, { ...newPart[0], character: null }]);
+      setParticipants((prev) => [...prev, { ...(newPart[0] as Participant), character: null }]);
       setInviteEmail('');
-      setError('');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error desconocido';
-      setError(`Error: ${message}`);
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setBusy(false);
     }
   };
 
   const handleConfirmCharacter = async (characterId: string) => {
     if (!currentUserParticipant || !characterId) {
-      setError('Selecciona un personaje');
+      setError('Elegí un personaje');
       return;
     }
 
+    setBusy(true);
     try {
       const { error: updateError } = await supabase
         .from('playthrough_participants')
-        .update({
-          character_id: characterId,
-          confirmed: true,
-        })
+        .update({ character_id: characterId, confirmed: true })
         .eq('id', currentUserParticipant.id)
         .select();
-
       if (updateError) throw updateError;
 
-      const updated = { ...currentUserParticipant, character_id: characterId, confirmed: true };
-      setCurrentUserParticipant(updated);
-      setParticipants(
-        participants.map((p) => (p.id === currentUserParticipant.id ? updated : p))
+      const character = characters.find((c) => c.id === characterId) ?? null;
+      setParticipants((prev) =>
+        prev.map((p) =>
+          p.id === currentUserParticipant.id
+            ? { ...p, character_id: characterId, confirmed: true, character }
+            : p
+        )
       );
       setError('');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error desconocido';
-      setError(`Error: ${message}`);
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleContinue = async () => {
-    if (isDM) {
-      // DM: check all players confirmed
-      const players = participants.filter((p) => p.role === 'player');
-      const allConfirmed = players.every((p) => p.confirmed);
-
-      if (!allConfirmed) {
-        setError('Todos los jugadores deben confirmar personaje');
-        return;
-      }
-    } else {
-      // Player: check they confirmed
-      if (!currentUserParticipant?.confirmed) {
-        setError('Debes confirmar un personaje');
-        return;
-      }
+  const handleContinue = () => {
+    if (isDM && !allReady) {
+      setError('Todos los jugadores deben elegir personaje antes de empezar');
+      return;
     }
-
+    if (!isDM && !currentUserParticipant?.confirmed) {
+      setError('Primero confirmá tu personaje');
+      return;
+    }
     navigate(`/campaign/${campaignId}/play/${playthroughId}`);
   };
 
-  if (loading) return <div className="page-pad">Cargando lobby...</div>;
+  if (loading) return <div className="pl-state">Cargando lobby…</div>;
 
-  const players = participants.filter((p) => p.role === 'player');
-  const dm = participants.find((p) => p.role === 'dm');
+  if (!playthrough) {
+    return (
+      <div className="pl-state">
+        <p className="pl-error">{error || 'Partida no encontrada'}</p>
+        <button className="pl-btn pl-btn-ghost" onClick={() => navigate(`/campaign/${campaignId}`)}>
+          Volver a la campaña
+        </button>
+      </div>
+    );
+  }
+
+  const myCharacter = currentUserParticipant?.character ?? null;
 
   return (
-    <div className="playthrough-lobby page-pad">
-      <button className="btn-secondary" onClick={() => navigate(`/campaign/${campaignId}`)}>
-        ← Atrás
-      </button>
-
-      <h1>Lobby de partida</h1>
-
-      {error && <div className="error-message">{error}</div>}
-
-      <section className="lobby-dm">
-        <h2>Máster</h2>
-        <div className="dm-card">
-          <p className="dm-name">{dm?.user_email || 'DM'}</p>
-          <p className="dm-role">Controlador de la partida</p>
+    <div className="pl">
+      <header className="pl-hero">
+        <div className="pl-hero-inner">
+          <button className="pl-back" onClick={() => navigate(`/campaign/${campaignId}`)}>
+            ← Volver a la campaña
+          </button>
+          <p className="pl-eyebrow">{isDM ? 'Sos el director de juego' : 'Sos jugador'}</p>
+          <h1>Lobby de partida</h1>
+          <p className="pl-meta">
+            {plural(players.length, 'jugador', 'jugadores')} · {readyCount} de {players.length} listos
+          </p>
         </div>
-      </section>
+      </header>
 
-      <section className="lobby-players">
-        <h2>Jugadores ({players.length})</h2>
+      <main className="pl-main">
+        {error && (
+          <div className="pl-notice" role="alert">
+            {error}
+          </div>
+        )}
 
-        {players.length === 0 ? (
-          <p className="empty-state">No hay jugadores invitados aún.</p>
-        ) : (
-          <div className="players-list">
-            {players.map((player) => (
-              <div key={player.id} className="player-item">
-                {player.confirmed && player.character?.character_name && (
-                  <CharacterAvatar characterName={player.character.character_name} size="small" />
-                )}
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontWeight: '600' }}>{player.user_email || 'Jugador'}</p>
-                  {player.confirmed ? (
-                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.9rem', color: 'var(--gold)' }}>
-                      {player.character?.character_name}
-                    </p>
-                  ) : (
-                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.9rem', color: 'var(--ink-muted)' }}>
-                      Esperando...
-                    </p>
-                  )}
+        <div className="pl-layout">
+          <section className="pl-col">
+            <h2 className="pl-section">Mesa</h2>
+
+            <ul className="pl-seats">
+              <li className="pl-seat is-ready">
+                <Portrait name="M" />
+                <div className="pl-seat-body">
+                  <span className="pl-seat-role">Máster</span>
+                  <span className="pl-seat-name">
+                    {dm?.user_id === user?.id ? 'Vos' : 'Director de juego'}
+                  </span>
+                  <span className="pl-seat-char">Controla el mundo y las criaturas</span>
+                </div>
+                <span className="pl-badge pl-badge-ready">Listo</span>
+              </li>
+
+              {players.map((player) => {
+                const name = player.character?.character_name ?? '';
+                const isMe = player.user_id === user?.id;
+                return (
+                  <li key={player.id} className={`pl-seat ${player.confirmed ? 'is-ready' : ''}`}>
+                    {player.confirmed && name ? (
+                      <Portrait name={name} src={player.character?.portrait_url} />
+                    ) : (
+                      <Portrait name="?" />
+                    )}
+                    <div className="pl-seat-body">
+                      <span className="pl-seat-role">{isMe ? 'Vos' : 'Jugador'}</span>
+                      <span className="pl-seat-name">
+                        {player.confirmed && name ? name : 'Sin personaje'}
+                      </span>
+                      {player.confirmed && player.character && (
+                        <span className="pl-seat-char">
+                          {[player.character.race, player.character.character_class]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      )}
+                    </div>
+                    <span className={`pl-badge ${player.confirmed ? 'pl-badge-ready' : 'pl-badge-wait'}`}>
+                      {player.confirmed ? 'Listo' : 'Eligiendo…'}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {players.length === 0 && (
+              <p className="pl-empty">Todavía no hay jugadores invitados.</p>
+            )}
+
+            {isDM && (
+              <div className="pl-invite">
+                <h3 className="pl-subtitle">Invitar jugador</h3>
+                <p className="pl-hint">Ingresá el email con el que se registró.</p>
+                <div className="pl-invite-row">
+                  <input
+                    type="email"
+                    placeholder="jugador@email.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="pl-input"
+                    disabled={busy}
+                  />
+                  <button className="pl-btn pl-btn-ghost" onClick={handleInvitePlayer} disabled={busy}>
+                    Invitar
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            )}
+          </section>
 
-        {isDM && (
-          <div className="invite-form">
-            <input
-              type="email"
-              placeholder="Email del jugador a invitar"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              className="form-input"
-            />
-            <button className="btn-primary" onClick={handleInvitePlayer}>
-              Invitar
-            </button>
-          </div>
-        )}
-      </section>
-
-      {!isDM && currentUserParticipant && (
-        <section className="lobby-character-select">
-          <h2>Tu personaje</h2>
-          {currentUserParticipant.confirmed ? (
-            <div className="character-confirmed">
-              <p style={{ fontSize: '1.1rem', margin: 0, marginBottom: '1rem' }}>
-                ✓ {currentUserParticipant.character?.character_name}
-              </p>
-              <button
-                className="btn-primary btn-large"
-                onClick={handleContinue}
-                style={{ width: '100%' }}
-              >
-                Entrar a la partida →
-              </button>
-            </div>
-          ) : (
-            <div>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
-                  Elige personaje:
-                </label>
-                <select
-                  value={selectedCharacterId}
-                  onChange={(e) => setSelectedCharacterId(e.target.value)}
-                  className="form-select"
-                >
-                  <option value="">-- Seleccionar --</option>
-                  {characters.map((char) => (
-                    <option key={char.id} value={char.id}>
-                      {char.character_name}
-                    </option>
-                  ))}
-                </select>
+          <aside className="pl-col pl-action">
+            {!isDM && currentUserParticipant && !currentUserParticipant.confirmed && (
+              <div className="pl-card">
+                <h2 className="pl-section">Elegí tu personaje</h2>
+                {characters.length === 0 ? (
+                  <div className="pl-empty-box">
+                    <p>Todavía no hay personajes en esta campaña.</p>
+                    <button
+                      className="pl-btn pl-btn-ghost"
+                      onClick={() => navigate(`/campaign/${campaignId}/characters`)}
+                    >
+                      Crear o elegir héroe
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="pl-picker" role="radiogroup" aria-label="Personajes">
+                      {characters.map((c) => {
+                        const selected = selectedCharacterId === c.id;
+                        return (
+                          <button
+                            key={c.id}
+                            role="radio"
+                            aria-checked={selected}
+                            className={`pl-choice ${selected ? 'is-selected' : ''}`}
+                            onClick={() => setSelectedCharacterId(c.id)}
+                          >
+                            <Portrait name={c.character_name} src={c.portrait_url} />
+                            <span className="pl-choice-name">{c.character_name}</span>
+                            <span className="pl-choice-sub">
+                              {[c.race, c.character_class].filter(Boolean).join(' · ') || 'Sin datos'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      className="pl-btn pl-btn-primary pl-btn-block"
+                      onClick={() => handleConfirmCharacter(selectedCharacterId)}
+                      disabled={!selectedCharacterId || busy}
+                    >
+                      Confirmar personaje
+                    </button>
+                  </>
+                )}
               </div>
-              <button
-                className="btn-primary"
-                onClick={() => handleConfirmCharacter(selectedCharacterId)}
-                disabled={!selectedCharacterId}
-              >
-                Confirmar personaje
-              </button>
-            </div>
-          )}
-        </section>
-      )}
+            )}
 
-      {isDM && (
-        <section className="lobby-actions">
-          <p style={{ marginBottom: '1rem', color: 'var(--gold)', fontWeight: 600 }}>
-            Rol: DM — Esperando jugadores...
-          </p>
-          <button
-            className="btn-primary btn-large"
-            onClick={handleContinue}
-            disabled={!players.every((p) => p.confirmed)}
-            style={{ width: '100%' }}
-          >
-            Iniciar sesión →
-          </button>
-        </section>
-      )}
+            {!isDM && currentUserParticipant?.confirmed && (
+              <div className="pl-card">
+                <h2 className="pl-section">Tu personaje</h2>
+                <div className="pl-confirmed">
+                  <Portrait name={myCharacter?.character_name ?? '?'} src={myCharacter?.portrait_url} />
+                  <div>
+                    <p className="pl-confirmed-name">{myCharacter?.character_name ?? 'Personaje'}</p>
+                    <p className="pl-hint">
+                      {[myCharacter?.race, myCharacter?.character_class].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                </div>
+                <button className="pl-btn pl-btn-primary pl-btn-block" onClick={handleContinue}>
+                  Entrar a la partida →
+                </button>
+              </div>
+            )}
+
+            {!isDM && !currentUserParticipant && (
+              <div className="pl-card">
+                <p className="pl-hint">No estás invitado a esta partida.</p>
+              </div>
+            )}
+
+            {isDM && (
+              <div className="pl-card">
+                <h2 className="pl-section">Estado de la mesa</h2>
+                <ul className="pl-status">
+                  <li>
+                    <span>Jugadores listos</span>
+                    <strong>
+                      {readyCount} / {players.length}
+                    </strong>
+                  </li>
+                  <li>
+                    <span>Personajes elegidos</span>
+                    <strong>{players.filter((p) => p.character_id).length}</strong>
+                  </li>
+                </ul>
+                <p className="pl-hint">
+                  {players.length === 0
+                    ? 'Todavía no hay jugadores. Podés empezar solo o invitar a alguien antes.'
+                    : allReady
+                      ? 'Todo listo. Podés empezar la sesión.'
+                      : 'Esperando a que todos los jugadores elijan personaje.'}
+                </p>
+                <button
+                  className="pl-btn pl-btn-primary pl-btn-block"
+                  onClick={handleContinue}
+                  disabled={!allReady}
+                >
+                  Entrar a la partida →
+                </button>
+              </div>
+            )}
+          </aside>
+        </div>
+      </main>
     </div>
   );
 };

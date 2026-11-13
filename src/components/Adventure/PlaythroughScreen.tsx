@@ -10,6 +10,8 @@ import { SceneDMView } from './SceneDMView';
 import { FinalAdventureScreen } from './FinalAdventureScreen';
 import { audioManager } from '../../lib/audio';
 import { CombatAnimation } from '../Combat/CombatAnimations';
+import { findModuleByOrigin } from '../../content/modules';
+import './playthrough-screen.css';
 
 export const PlaythroughScreen = () => {
   const { campaignId, playthroughId } = useParams();
@@ -29,6 +31,29 @@ export const PlaythroughScreen = () => {
   const [userRole, setUserRole] = useState<'dm' | 'player'>('player');
   const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
   const [combatAnimations] = useState<Array<{ id: string; type: 'attack' | 'heal' | 'damage' | 'miss'; value?: number; x: number; y: number }>>([]);
+  const [adventureOrigin, setAdventureOrigin] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const module = findModuleByOrigin(adventureOrigin);
+  const moduleScene = module && scene ? module.scenes.find((s) => s.order === scene.scene_order) : undefined;
+
+  // Ambiente sonoro definido por el módulo (prevalece sobre el genérico por tipo de escena)
+  useEffect(() => {
+    if (moduleScene?.ambient) audioManager.playAmbient(moduleScene.ambient);
+  }, [moduleScene?.key]);
+
+  // Carga el origin de la aventura para enlazar con su módulo de ayudas visuales
+  useEffect(() => {
+    if (!playthrough?.adventure_id) return;
+    (async () => {
+      const { data } = await supabase
+        .from('adventures')
+        .select('origin')
+        .eq('id', playthrough.adventure_id)
+        .single();
+      setAdventureOrigin(data?.origin ?? null);
+    })();
+  }, [playthrough?.adventure_id]);
 
   const viewStorageKey = `dnd_view_${playthroughId}`;
 
@@ -91,9 +116,14 @@ export const PlaythroughScreen = () => {
     const pollInterval = setInterval(async () => {
       const { data: pt } = await supabase
         .from('playthroughs')
-        .select('current_scene_id')
+        .select('current_scene_id, flags')
         .eq('id', playthroughId)
         .single();
+
+      // Sincroniza lo que el DM comparte (mapas, niebla, documentos) sin cambiar de escena
+      if (pt && pt.current_scene_id === currentSceneId && JSON.stringify(pt.flags ?? {}) !== JSON.stringify(playthrough.flags ?? {})) {
+        setPlaythrough({ ...playthrough, flags: pt.flags ?? {} });
+      }
 
       if (pt && pt.current_scene_id && pt.current_scene_id !== currentSceneId) {
         // Escena cambió, actualizar
@@ -359,8 +389,21 @@ export const PlaythroughScreen = () => {
     }
   };
 
-  if (loading || !playthrough || !scene) {
-    return <div className="page-pad">Cargando aventura...</div>;
+  // Solo la carga inicial reemplaza la pantalla. Durante una acción, los botones se deshabilitan
+  // y la vista se mantiene para no perder el contexto.
+  if (!playthrough || !scene) {
+    return loading ? (
+      <div className="ps-state" role="status">
+        <p>Cargando la partida…</p>
+      </div>
+    ) : (
+      <div className="ps-state">
+        <p>No pudimos abrir esta partida. Puede que haya sido borrada o que no tengas acceso.</p>
+        <button className="ps-btn ps-btn-ghost" onClick={() => navigate(`/campaign/${campaignId}`)}>
+          Volver a la campaña
+        </button>
+      </div>
+    );
   }
 
   const handleInitiateCombat = async () => {
@@ -467,7 +510,7 @@ export const PlaythroughScreen = () => {
       navigate(`/campaign/${campaignId}/combat/${combat.id}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
-      alert(`Error al iniciar combate: ${message}`);
+      setNotice(`No se pudo iniciar el combate. ${message}`);
       setLoading(false);
     }
   };
@@ -530,7 +573,7 @@ export const PlaythroughScreen = () => {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
-      alert(`Error al resolver combate: ${message}`);
+      setNotice(`No se pudo cerrar el combate. ${message}`);
     } finally {
       setLoading(false);
     }
@@ -539,7 +582,7 @@ export const PlaythroughScreen = () => {
   const handleCancelCombat = async () => {
     if (!playthrough || !scene || !playthroughId) return;
 
-    if (!window.confirm('¿Seguro que quieres cancelar el combate? No se registrará como un evento.')) {
+    if (!window.confirm('¿Cancelar el combate? No queda registrado en la aventura.')) {
       return;
     }
 
@@ -571,7 +614,7 @@ export const PlaythroughScreen = () => {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
-      alert(`Error al cancelar combate: ${message}`);
+      setNotice(`No se pudo cancelar el combate. ${message}`);
     } finally {
       setLoading(false);
     }
@@ -642,6 +685,21 @@ export const PlaythroughScreen = () => {
     }
   };
 
+  // El DM comparte/oculta mapa, zonas de niebla y documentos (se guardan en flags)
+  const handleToggleFlag = async (flag: string) => {
+    if (!isDM || !playthrough) return;
+    const newFlags = { ...playthrough.flags, [flag]: !playthrough.flags?.[flag] };
+    const { error } = await supabase
+      .from('playthroughs')
+      .update({ flags: newFlags, updated_at: new Date().toISOString() })
+      .eq('id', playthroughId);
+    if (error) {
+      setNotice(`No se pudo compartir con los jugadores. ${error.message}`);
+      return;
+    }
+    setPlaythrough({ ...playthrough, flags: newFlags });
+  };
+
   const visibleOptions = options.filter((opt) => {
     if (!opt.requires_flag) return true;
     return playthrough.flags[opt.requires_flag] === true;
@@ -653,28 +711,55 @@ export const PlaythroughScreen = () => {
   });
 
   return (
-    <div className={`playthrough ${isPlayerView ? 'player-view' : 'dm-view'}`}>
-      <header className="playthrough-header">
-        <button className="btn-secondary" onClick={() => navigate(`/campaign/${campaignId}`)}>
-          ← Campaña
+    <div className={`ps ${isPlayerView ? 'ps-players' : 'ps-dm'}`}>
+      <header className="ps-top">
+        <button className="ps-back" onClick={() => navigate(`/campaign/${campaignId}`)}>
+          ← Volver a la campaña
         </button>
-        <h1>{scene.title || `Escena ${scene.scene_order}`}</h1>
-        <div className="header-right">
-          {isDM && !isPlayerView && user && (
-            <span className="session-email">{user.email}</span>
-          )}
-          {isDM && !isPlayerView && (
-            <button className="btn-primary" onClick={handleShowToPlayers}>
-              Mostrar a los jugadores
-            </button>
-          )}
-          {isDM && isPlayerView && (
-            <button className="btn-secondary" onClick={() => setShowConfirm(true)}>
-              Volver a DM
-            </button>
-          )}
+
+        <div className="ps-title">
+          <p className="ps-eyebrow">
+            {isDM ? (isPlayerView ? 'Estás mostrando la pantalla a los jugadores' : 'Vista del director') : 'Vista de jugadores'}
+          </p>
+          <h1>{scene.title || `Escena ${scene.scene_order}`}</h1>
         </div>
+
+        {isDM && (
+          <div className="ps-mode" role="group" aria-label="Elegí qué pantalla ves">
+            <button
+              className={`ps-mode-btn ${!isPlayerView ? 'is-active' : ''}`}
+              aria-pressed={!isPlayerView}
+              onClick={() => isPlayerView && setShowConfirm(true)}
+            >
+              Mi vista (DM)
+            </button>
+            <button
+              className={`ps-mode-btn ${isPlayerView ? 'is-active' : ''}`}
+              aria-pressed={isPlayerView}
+              onClick={handleShowToPlayers}
+            >
+              Vista de jugadores
+            </button>
+          </div>
+        )}
       </header>
+
+      {isDM && (
+        <p className="ps-hint-bar">
+          {isPlayerView
+            ? 'Los jugadores ven solo lo que les corresponde. Tus notas secretas están ocultas.'
+            : 'Vos ves todo: notas secretas, opciones y controles. Usá “Vista de jugadores” cuando tengas que mostrar la pantalla a la mesa.'}
+        </p>
+      )}
+
+      {notice && (
+        <div className="ps-notice" role="alert">
+          <p>{notice}</p>
+          <button className="ps-btn ps-btn-ghost" onClick={() => setNotice(null)}>
+            Entendido
+          </button>
+        </div>
+      )}
 
       {/* Render combat animations overlay */}
       {combatAnimations.map((anim) => (
@@ -682,15 +767,22 @@ export const PlaythroughScreen = () => {
       ))}
 
       {showConfirm && (
-        <div className="modal-backdrop" onClick={() => setShowConfirm(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <p>¿Volver a vista DM? Los jugadores verían información oculta.</p>
-            <div className="modal-buttons">
-              <button className="btn-secondary" onClick={() => setShowConfirm(false)}>
-                Cancelar
+        <div className="ps-modal-backdrop" onClick={() => setShowConfirm(false)}>
+          <div
+            className="ps-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ps-confirm-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="ps-confirm-title">¿Volver a tu vista de DM?</h2>
+            <p>Tus notas secretas volverán a verse en esta pantalla. Si la estás mostrando a la mesa, dejará de hacerlo.</p>
+            <div className="ps-modal-buttons">
+              <button className="ps-btn ps-btn-ghost" onClick={() => setShowConfirm(false)}>
+                Seguir mostrando a jugadores
               </button>
-              <button className="btn-primary" onClick={toggleView}>
-                Volver a DM
+              <button className="ps-btn ps-btn-primary" onClick={toggleView}>
+                Volver a mi vista
               </button>
             </div>
           </div>
@@ -702,13 +794,20 @@ export const PlaythroughScreen = () => {
           playthrough={playthrough}
           onGoToPreviousScene={hasPreviousScene ? handleGoToPreviousScene : undefined}
           isLoading={loading}
+          module={module}
+          moduleScene={moduleScene}
+          isDM={isDM}
         />
-      ) : userRole === 'player' ? (
+      ) : userRole === 'player' || isPlayerView ? (
+        // Un DM en "Vista de jugadores" ve exactamente lo que ven los jugadores (sin notas secretas).
         <ScenePlayerView
           scene={toPlayerScene(scene)}
           options={visibleOptions.map(toPlayerOption)}
           onSelectOption={handleSelectOption}
           isLoading={loading}
+          module={module}
+          moduleScene={moduleScene}
+          flags={playthrough.flags}
         />
       ) : (
         <SceneDMView
@@ -728,6 +827,10 @@ export const PlaythroughScreen = () => {
           onCancelCombat={scene.scene_type === 'combate' ? handleCancelCombat : undefined}
           isLoading={loading}
           sceneCount={sceneCount}
+          module={module}
+          moduleScene={moduleScene}
+          flags={playthrough.flags}
+          onToggleFlag={handleToggleFlag}
         />
       )}
     </div>

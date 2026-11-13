@@ -1,0 +1,198 @@
+/* Pantalla de partida — tokens globales (src/styles/tokens.css) */
+
+.ps { min-height: 100vh; background: var(--bg-base); color: var(--ink); font-family: var(--font-body); }
+.ps-state { min-height: 60vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: var(--ink-muted); text-align: center; padding: 24px; }
+.ps-state p { margin: 0; max-width: 420px; }
+
+/* Barra superior */
+.ps-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  padding: 14px 28px;
+  background: rgba(26, 20, 16, 0.94);
+  border-bottom: 1px solid var(--border-soft);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(6px);
+}
+.ps-title { flex: 1 1 260px; min-width: 0; }
+.ps-eyebrow { margin: 0 0 2px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.ps-title h1 { margin: 0; font-family: var(--font-title); font-size: 22px; color: var(--gold-bright); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ps-btn {
+  font-family: var(--font-title);
+  letter-spacing: 0.04em;
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  min-height: 44px;
+  transition: filter 0.15s, border-color 0.15s, color 0.15s;
+}
+.ps-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.ps-btn:focus-visible, .ps-back:focus-visible, .ps-mode-btn:focus-visible, .ps-option:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+.ps-btn-primary { background: linear-gradient(180deg, var(--gold-bright), var(--gold)); color: var(--ink-dark); border-color: var(--gold-bright); font-weight: 600; }
+.ps-btn-primary:hover:not(:disabled) { filter: brightness(1.05); }
+.ps-btn-ghost { background: rgba(20, 16, 12, 0.5); color: var(--ink); border-color: var(--border-gold); }
+.ps-btn-ghost:hover:not(:disabled) { color: var(--gold-bright); }
+.ps-btn-danger { background: var(--wine-bright); color: var(--ink); border-color: var(--wine-bright); }
+
+.ps-back {
+  background: rgba(20, 16, 12, 0.6);
+  border: 1px solid var(--border-soft);
+  color: var(--ink-muted);
+  border-radius: var(--radius);
+  padding: 9px 14px;
+  font: inherit;
+  font-size: 14px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.ps-back:hover { color: var(--gold-bright); border-color: var(--border-gold); }
+
+/* Selector de vista (DM) */
+.ps-mode { display: inline-flex; border: 1px solid var(--border-gold); border-radius: var(--radius); overflow: hidden; }
+.ps-mode-btn {
+  background: transparent;
+  color: var(--ink-muted);
+  border: 0;
+  font: inherit;
+  font-size: 14px;
+  padding: 10px 16px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.ps-mode-btn + .ps-mode-btn { border-left: 1px solid var(--border-gold); }
+.ps-mode-btn.is-active { background: var(--gold); color: var(--ink-dark); font-weight: 600; }
+
+/* Mensajes */
+.ps-hint-bar { max-width: 1200px; margin: 18px auto 0; padding: 0 28px; font-size: 14px; color: var(--ink-muted); }
+.ps-notice {
+  max-width: 1200px;
+  margin: 16px auto 0;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: rgba(124, 45, 58, 0.25);
+  border: 1px solid var(--wine-bright);
+  border-radius: var(--radius);
+  color: var(--ink);
+}
+.ps-notice p { margin: 0; }
+
+/* Contenido */
+.ps-body { max-width: 1200px; margin: 0 auto; padding: 22px 28px 72px; display: flex; flex-direction: column; gap: 22px; }
+.ps-progress { margin: 0; font-size: 13px; letter-spacing: 0.06em; color: var(--ink-muted); }
+
+.ps-grid { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+.ps-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.ps-panel-secret { border-color: rgba(156, 58, 74, 0.55); }
+.ps-panel h2 { margin: 0; font-family: var(--font-title); font-size: 18px; color: var(--gold-bright); }
+.ps-panel p { margin: 0; line-height: 1.6; }
+.ps-panel-note { font-size: 14px; color: var(--ink-muted); }
+.ps-tag {
+  align-self: flex-start;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-gold);
+  color: var(--gold);
+}
+.ps-tag-secret { border-color: rgba(156, 58, 74, 0.7); color: #e8a0aa; }
+
+.ps-encounter { border-top: 1px solid var(--border-soft); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.ps-encounter strong { font-family: var(--font-title); color: var(--gold-bright); font-weight: 400; font-size: 17px; }
+
+/* Acciones: decisiones del grupo */
+.ps-actions { gap: 16px; }
+.ps-actions-head { display: flex; flex-direction: column; gap: 4px; }
+.ps-option-list { display: flex; flex-direction: column; gap: 10px; }
+.ps-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  min-height: 44px;
+  background: var(--bg-base);
+  color: var(--ink);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.ps-option:hover:not(:disabled) { border-color: var(--gold-bright); transform: translateY(-1px); }
+.ps-option:disabled { opacity: 0.55; cursor: not-allowed; }
+.ps-option-label { font-family: var(--font-title); font-size: 16px; color: var(--gold-bright); }
+.ps-option-note { font-size: 13px; color: var(--ink-muted); }
+
+.ps-locked { border: 1px dashed var(--border-soft); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.ps-locked-label { font-size: 15px; color: var(--ink-muted); }
+.ps-locked-why { font-size: 13px; color: var(--ink-muted); }
+.ps-locked-key { font-family: monospace; font-size: 12px; color: var(--ink-muted); opacity: 0.8; }
+
+.ps-manual { border-top: 1px solid var(--border-soft); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.ps-manual-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.ps-history { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border-soft); padding-top: 14px; }
+
+/* Vista del jugador */
+.ps-player-body { max-width: 760px; margin: 0 auto; padding: 22px 20px 72px; display: flex; flex-direction: column; gap: 22px; }
+.ps-player-text { font-size: 18px; line-height: 1.7; color: var(--ink); }
+.ps-banner {
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: rgba(156, 58, 74, 0.2);
+  border: 1px solid var(--wine-bright);
+  color: var(--ink);
+  margin: 0;
+}
+.ps-player-choices { display: flex; flex-direction: column; gap: 12px; }
+.ps-player-choices .ps-option-label { font-size: 17px; }
+.ps-player-choices h2 { margin: 0; font-family: var(--font-title); font-size: 22px; color: var(--gold-bright); }
+.ps-end { margin: 0; text-align: center; font-family: var(--font-title); font-size: 18px; color: var(--gold-bright); }
+
+/* Modal */
+.ps-modal-backdrop { position: fixed; inset: 0; background: rgba(10, 8, 6, 0.75); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
+.ps-modal { width: 100%; max-width: 420px; background: var(--bg-surface); border: 1px solid var(--border-gold); border-radius: var(--radius); padding: 22px; display: flex; flex-direction: column; gap: 14px; box-shadow: var(--shadow-card); }
+.ps-modal h2 { margin: 0; font-family: var(--font-title); font-size: 19px; color: var(--gold-bright); }
+.ps-modal p { margin: 0; color: var(--ink-muted); line-height: 1.5; }
+.ps-modal-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+
+/* Escritorio */
+@media (min-width: 960px) {
+  .ps-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ps-actions { grid-column: 1 / -1; }
+}
+
+@media (max-width: 720px) {
+  .ps-top { padding: 12px 16px; }
+  .ps-title h1 { white-space: normal; font-size: 19px; }
+  .ps-hint-bar { padding: 0 16px; }
+  .ps-body { padding: 18px 16px 72px; }
+  .ps-mode { width: 100%; }
+  .ps-mode-btn { flex: 1; }
+}

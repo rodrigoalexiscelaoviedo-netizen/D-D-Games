@@ -20,7 +20,10 @@ export interface Open5eMonster {
   damage_immunities?: string;
   condition_immunities?: string;
   languages?: string;
-  challenge: number;
+  /** Desafío como texto: "1/8", "1/4", "1/2", "7"… (API v1). */
+  cr?: string;
+  challenge_rating?: string;
+  slug?: string;
   special_abilities?: Array<{ name: string; desc: string }>;
   actions?: Array<{ name: string; desc: string }>;
   reactions?: Array<{ name: string; desc: string }>;
@@ -54,7 +57,7 @@ export interface Creature {
 export async function fetchOpen5eMonsters(limit = 100, offset = 0): Promise<Open5eMonster[]> {
   try {
     const response = await fetch(
-      `https://api.open5e.com/monsters/?limit=${limit}&offset=${offset}`
+      `https://api.open5e.com/v1/monsters/?limit=${limit}&offset=${offset}`
     );
     if (!response.ok) throw new Error('Failed to fetch from Open5e');
     const data = await response.json();
@@ -63,6 +66,16 @@ export async function fetchOpen5eMonsters(limit = 100, offset = 0): Promise<Open
     console.error('Error fetching Open5e monsters:', error);
     return [];
   }
+}
+
+/** "1/4" → 0.25, "7" → 7. Si no se entiende, 0 (la columna es obligatoria). */
+export function parseChallenge(raw: string | number | undefined): number {
+  if (typeof raw === 'number') return raw;
+  if (!raw) return 0;
+  const frac = /^(\d+)\/(\d+)$/.exec(raw.trim());
+  if (frac) return Number(frac[1]) / Number(frac[2]);
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
 }
 
 export function mapOpen5eToCreature(monster: Open5eMonster): Creature {
@@ -84,8 +97,8 @@ export function mapOpen5eToCreature(monster: Open5eMonster): Creature {
 
   return {
     name: monster.name,
-    type: monster.type,
-    cr: monster.challenge,
+    type: (monster.type ?? 'bestia').toLowerCase(),
+    cr: parseChallenge(monster.cr ?? monster.challenge_rating),
     hp: monster.hit_points,
     ac: monster.armor_class,
     str: monster.strength,
@@ -103,7 +116,7 @@ export function mapOpen5eToCreature(monster: Open5eMonster): Creature {
     damage_resistances: monster.damage_resistances || undefined,
     damage_immunities: monster.damage_immunities || undefined,
     source: 'open5e',
-    open5e_index: monster.index,
+    open5e_index: monster.slug ?? monster.index,
   };
 }
 

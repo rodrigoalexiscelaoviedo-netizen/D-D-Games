@@ -143,6 +143,16 @@ export const AdventureList = () => {
 
       <h1>Aventuras</h1>
 
+      <div className="module-library-cta">
+        <div>
+          <strong>📚 Biblioteca de módulos</strong>
+          <p>Campaña lista para jugar: 3 aventuras con mapas, documentos y finales múltiples.</p>
+        </div>
+        <button className="btn-primary" onClick={() => navigate(`/campaign/${campaignId}/modules`)}>
+          Abrir biblioteca
+        </button>
+      </div>
+
       {loading ? (
         <p>Cargando aventuras...</p>
       ) : (
@@ -150,7 +160,7 @@ export const AdventureList = () => {
           <section className="adventures-section">
             <h2>Aventuras disponibles</h2>
             {adventures.length === 0 ? (
-              <p className="empty-state">No hay aventuras cargadas aún.</p>
+              <p className="empty-state">No hay aventuras cargadas aún. Instala una desde la biblioteca de módulos.</p>
             ) : (
               <div className="adventures-grid">
                 {adventures.map((adv) => (

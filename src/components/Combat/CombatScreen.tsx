@@ -5,6 +5,7 @@ import { cerrarCombate } from '../../lib/combat-return';
 import { resolveAttack, nextAliveIndex, isCombatOver, abilityMod, roll, skillCheck, getAbility } from '../../lib/combat-engine';
 import { CombatAnimation } from './CombatAnimations';
 import type { RollResult } from '../../lib/combat-engine';
+import './combat-screen.css';
 
 type Phase = 'awaiting_player' | 'awaiting_dm_continue' | 'showing_roll' | 'finished';
 type PickingFor = 'attack' | 'ability' | null;
@@ -340,202 +341,240 @@ export const CombatScreen = () => {
     }
   };
 
-  if (loading) return <div className="page-pad">Cargando combate...</div>;
+  if (loading) {
+    return (
+      <div className="cs-state" role="status">
+        <p>Preparando el combate…</p>
+      </div>
+    );
+  }
 
   const outcome = isCombatOver(participants);
+  const foes = enemies;
+
+  const rowStatus = (p: any) => {
+    if (p.has_fled) return 'Huyó';
+    if (p.hp_current <= 0) return 'Caído';
+    return `${p.hp_current}/${p.hp_max} PV`;
+  };
+
+  const renderRoster = (list: any[]) =>
+    list.map((p) => {
+      const pct = Math.max(0, Math.min(100, (p.hp_current / (p.hp_max || 1)) * 100));
+      const isCurrent = p.id === current?.id;
+      const down = p.hp_current <= 0 || p.has_fled;
+      return (
+        <li key={p.id} className={`cs-row ${isCurrent ? 'is-now' : ''} ${down ? 'is-down' : ''}`}>
+          <div className="cs-row-head">
+            <span className="cs-row-name">
+              {isCurrent && <span className="cs-row-turn">Juega ahora · </span>}
+              {p.name}
+            </span>
+            <span className="cs-row-status">
+              {rowStatus(p)}
+              {p.temp_ac_bonus > 0 && <em className="cs-row-buff"> · CA {effectiveAC(p)} por defensa</em>}
+            </span>
+          </div>
+          <div
+            className="cs-bar"
+            role="progressbar"
+            aria-label={`Vida de ${p.name}`}
+            aria-valuemin={0}
+            aria-valuemax={p.hp_max}
+            aria-valuenow={Math.max(0, p.hp_current)}
+          >
+            <div className="cs-bar-fill" style={{ width: `${pct}%` }} />
+          </div>
+        </li>
+      );
+    });
 
   return (
-    <div className="cbt">
-      <div className="cbt-top">
-        <span className="cbt-round">Ronda {combat?.round ?? 1}</span>
-        <button className="btn-secondary sm" onClick={finish}>
-          Guardar y salir
+    <div className="cs">
+      <header className="cs-top">
+        <div className="cs-top-title">
+          <p className="cs-eyebrow">Combate en curso</p>
+          <h1>Ronda {combat?.round ?? 1}</h1>
+        </div>
+        <button className="cs-btn cs-btn-ghost" onClick={finish}>
+          Salir del combate
         </button>
-      </div>
+      </header>
 
-      <div className="cbt-stage">
-        {outcome === 'victory' && (
-          <div className="cbt-outcome win">
-            <h2>Victoria</h2>
-            <p>No queda ningún enemigo en pie.</p>
-            <button className="btn-primary" onClick={finish}>
-              Terminar combate
-            </button>
-          </div>
-        )}
+      <p className="cs-hint-bar">
+        Cada personaje juega en orden. Cuando juega un enemigo, el director narra lo que hace y toca “Continuar”.
+      </p>
 
-        {outcome === 'defeat' && (
-          <div className="cbt-outcome lose">
-            <h2>El grupo cae</h2>
-            <p>Todos los personajes están inconscientes.</p>
-            <button className="btn-primary" onClick={finish}>
-              Terminar combate
-            </button>
-          </div>
-        )}
-
-        {!outcome && lastRoll && phase === 'showing_roll' && (
-          <div
-            className={`dice-scene ${lastRoll.critical ? 'crit' : lastRoll.fumble ? 'fumble' : lastRoll.hit ? 'hit' : 'miss'}`}
-          >
-            <p className="dice-who">{lastRoll.actorName}</p>
-            <div className="d20">
-              <span className="d20-num">{lastRoll.d20}</span>
-            </div>
-            <p className="dice-math">
-              {lastRoll.d20} {lastRoll.bonus >= 0 ? '+' : '−'} {Math.abs(lastRoll.bonus)} ={' '}
-              <strong>{lastRoll.total}</strong> vs CA {lastRoll.targetAC}
-            </p>
-            <p className={`dice-verdict ${lastRoll.hit ? 'ok' : 'no'}`}>
-              {lastRoll.critical ? '¡CRÍTICO!' : lastRoll.fumble ? 'Pifia' : lastRoll.hit ? 'Golpea' : 'Falla'}
-              {lastRoll.hit && ` · ${lastRoll.damage} de daño`}
-            </p>
-            <p className="dice-explain">{lastRoll.explanation}</p>
-          </div>
-        )}
-
-        {!outcome && phase === 'awaiting_player' && (
-          <div className="turn-intro">
-            <p className="turn-label">Turno de</p>
-            <h2>{current?.name}</h2>
-            <p className="turn-sub">
-              {aliveEnemies.length === 1
-                ? `Queda ${aliveEnemies[0].name} en pie`
-                : `Quedan ${aliveEnemies.length} enemigos en pie`}
-            </p>
-          </div>
-        )}
-
-        {!outcome && phase === 'awaiting_dm_continue' && (
-          <div className="turn-intro enemy">
-            <p className="turn-label">Turno del enemigo</p>
-            <h2>{current?.name}</h2>
-            <p className="turn-sub">Narrá lo que hace y después continuá.</p>
-          </div>
-        )}
-      </div>
-
-      <div className="cbt-actions">
-        {phase === 'awaiting_dm_continue' && (
-          <button className="big-btn primary" disabled={busy} onClick={runEnemyTurn}>
-            Continuar →
-          </button>
-        )}
-
-        {phase === 'showing_roll' && (
-          <button className="big-btn ghost" disabled>
-            Resolviendo...
-          </button>
-        )}
-
-        {phase === 'awaiting_player' &&
-          !pickingTarget &&
-          (() => {
-            const ability = getAbility(classMap[current?.character_id]);
-            const abilitySpent = current?.ability_used;
-            return (
-              <>
-                <button
-                  className="big-btn primary"
-                  disabled={busy}
-                  onClick={() =>
-                    aliveEnemies.length === 1 ? doAttack(aliveEnemies[0]) : setPickingTarget('attack')
-                  }
-                >
-                  Atacar
-                  <small>d20 + {current?.attack_bonus ?? 2} · daño d{current?.damage_dice ?? 8}</small>
-                </button>
-
-                <button className="big-btn" disabled={busy} onClick={doDefend}>
-                  Defenderse
-                  <small>+2 CA hasta tu próximo turno</small>
-                </button>
-
-                <button
-                  className="big-btn"
-                  disabled={busy || abilitySpent}
-                  onClick={() => {
-                    if (ability.kind !== 'attack') return doAbility();
-                    return aliveEnemies.length === 1
-                      ? doAbility(aliveEnemies[0])
-                      : setPickingTarget('ability');
-                  }}
-                >
-                  {ability.name}
-                  <small>{abilitySpent ? 'Ya la usaste en este combate' : ability.description}</small>
-                </button>
-
-                <button className="big-btn" disabled={busy} onClick={doFlee}>
-                  Huir
-                  <small>Chequeo de DES contra dificultad 12</small>
-                </button>
-              </>
-            );
-          })()}
-
-        {phase === 'awaiting_player' && pickingTarget && (
-          <>
-            <p className="pick-label">¿A quién?</p>
-            {aliveEnemies.map((e) => (
-              <button
-                key={e.id}
-                className="big-btn primary"
-                onClick={() => (pickingTarget === 'attack' ? doAttack(e) : doAbility(e))}
-              >
-                {e.name} · {e.hp_current}/{e.hp_max} PV · CA {effectiveAC(e)}
+      <div className="cs-body">
+        <section className="cs-stage" aria-live="polite">
+          {outcome === 'victory' && (
+            <div className="cs-outcome cs-win">
+              <h2>¡Ganaron!</h2>
+              <p>Ya no queda ningún enemigo en pie.</p>
+              <button className="cs-btn cs-btn-primary" onClick={finish}>
+                Volver a la aventura
               </button>
-            ))}
-            <button className="big-btn ghost" onClick={() => setPickingTarget(null)}>
-              Cancelar
-            </button>
-          </>
-        )}
-      </div>
+            </div>
+          )}
 
-      <div className="cbt-roster">
-        {participants.map((p) => {
-          const pct = Math.max(0, (p.hp_current / p.hp_max) * 100);
-          const isCurrent = p.id === current?.id;
-          return (
+          {outcome === 'defeat' && (
+            <div className="cs-outcome cs-lose">
+              <h2>El grupo cayó</h2>
+              <p>Todos los personajes están inconscientes.</p>
+              <button className="cs-btn cs-btn-primary" onClick={finish}>
+                Volver a la aventura
+              </button>
+            </div>
+          )}
+
+          {!outcome && lastRoll && phase === 'showing_roll' && (
             <div
-              key={p.id}
-              className={`roster-row ${p.is_player ? 'ally' : 'foe'} ${p.hp_current <= 0 ? 'down' : ''} ${
-                isCurrent ? 'now' : ''
+              className={`cs-roll cs-roll-${
+                lastRoll.critical ? 'crit' : lastRoll.fumble ? 'fumble' : lastRoll.hit ? 'hit' : 'miss'
               }`}
             >
-              <span className="roster-name">{p.name}</span>
-              <div className="roster-bar">
-                <div className="roster-fill" style={{ width: `${pct}%` }} />
+              <p className="cs-roll-who">{lastRoll.actorName}</p>
+              <div className="cs-die" aria-label={`Dado: ${lastRoll.d20}`}>
+                {lastRoll.d20}
               </div>
-              <span className="roster-hp">
-                {p.has_fled ? 'huyó' : p.hp_current <= 0 ? 'caído' : `${p.hp_current}/${p.hp_max}`}
-                {p.temp_ac_bonus > 0 && <em className="ac-buff"> · CA {effectiveAC(p)}</em>}
-              </span>
+              <p className="cs-roll-math">
+                {lastRoll.d20} {lastRoll.bonus >= 0 ? '+' : '−'} {Math.abs(lastRoll.bonus)} ={' '}
+                <strong>{lastRoll.total}</strong> contra la CA {lastRoll.targetAC}
+              </p>
+              <p className="cs-roll-verdict">
+                {lastRoll.critical ? '¡Golpe crítico!' : lastRoll.fumble ? 'Pifia' : lastRoll.hit ? 'Acierta' : 'Falla'}
+                {lastRoll.hit && ` · ${lastRoll.damage} de daño`}
+              </p>
+              <p className="cs-hint">{lastRoll.explanation}</p>
             </div>
-          );
-        })}
+          )}
+
+          {!outcome && phase === 'awaiting_player' && (
+            <div className="cs-turn">
+              <p className="cs-eyebrow">Le toca a</p>
+              <h2>{current?.name}</h2>
+              <p className="cs-hint">
+                {aliveEnemies.length === 1
+                  ? `Queda 1 enemigo en pie: ${aliveEnemies[0].name}.`
+                  : `Quedan ${aliveEnemies.length} enemigos en pie.`}
+              </p>
+            </div>
+          )}
+
+          {!outcome && phase === 'awaiting_dm_continue' && (
+            <div className="cs-turn cs-turn-enemy">
+              <p className="cs-eyebrow">Le toca al enemigo</p>
+              <h2>{current?.name}</h2>
+              <p className="cs-hint">Contá qué hace y después tocá “Continuar”.</p>
+            </div>
+          )}
+        </section>
+
+        <section className="cs-actions" aria-label="Qué puede hacer el personaje">
+          {phase === 'awaiting_dm_continue' && (
+            <button className="cs-action cs-action-main" disabled={busy} onClick={runEnemyTurn}>
+              <span className="cs-action-title">Continuar</span>
+              <span className="cs-action-sub">El enemigo ataca a uno de los personajes</span>
+            </button>
+          )}
+
+          {phase === 'showing_roll' && <p className="cs-hint">Resolviendo el turno…</p>}
+
+          {phase === 'awaiting_player' &&
+            !pickingTarget &&
+            (() => {
+              const ability = getAbility(classMap[current?.character_id]);
+              const abilitySpent = current?.ability_used;
+              return (
+                <>
+                  <button
+                    className="cs-action cs-action-main"
+                    disabled={busy}
+                    onClick={() => (aliveEnemies.length === 1 ? doAttack(aliveEnemies[0]) : setPickingTarget('attack'))}
+                  >
+                    <span className="cs-action-title">Atacar</span>
+                    <span className="cs-action-sub">
+                      Tirá un d20 y sumá {current?.attack_bonus ?? 2}. Si acierta, hace d{current?.damage_dice ?? 8} de daño.
+                    </span>
+                  </button>
+
+                  <button className="cs-action" disabled={busy} onClick={doDefend}>
+                    <span className="cs-action-title">Defenderse</span>
+                    <span className="cs-action-sub">Sube 2 de CA hasta tu próximo turno: les cuesta más acertarte.</span>
+                  </button>
+
+                  <button
+                    className="cs-action"
+                    disabled={busy || abilitySpent}
+                    onClick={() => {
+                      if (ability.kind !== 'attack') return doAbility();
+                      return aliveEnemies.length === 1 ? doAbility(aliveEnemies[0]) : setPickingTarget('ability');
+                    }}
+                  >
+                    <span className="cs-action-title">{ability.name}</span>
+                    <span className="cs-action-sub">
+                      {abilitySpent ? 'Ya la usaste en este combate.' : ability.description}
+                    </span>
+                  </button>
+
+                  <button className="cs-action" disabled={busy} onClick={doFlee}>
+                    <span className="cs-action-title">Huir</span>
+                    <span className="cs-action-sub">Tirá Destreza. Con 12 o más, escapa del combate.</span>
+                  </button>
+                </>
+              );
+            })()}
+
+          {phase === 'awaiting_player' && pickingTarget && (
+            <div className="cs-pick">
+              <p className="cs-pick-title">¿A quién apuntás?</p>
+              {aliveEnemies.map((e) => (
+                <button
+                  key={e.id}
+                  className="cs-action cs-action-main"
+                  onClick={() => (pickingTarget === 'attack' ? doAttack(e) : doAbility(e))}
+                >
+                  <span className="cs-action-title">{e.name}</span>
+                  <span className="cs-action-sub">
+                    {e.hp_current}/{e.hp_max} PV · CA {effectiveAC(e)}
+                  </span>
+                </button>
+              ))}
+              <button className="cs-btn cs-btn-ghost" onClick={() => setPickingTarget(null)}>
+                Volver
+              </button>
+            </div>
+          )}
+        </section>
+
+        <aside className="cs-side" aria-label="Estado del combate">
+          <section className="cs-panel">
+            <h2>Tu grupo</h2>
+            <ul className="cs-roster">{renderRoster(allies)}</ul>
+          </section>
+          <section className="cs-panel">
+            <h2>Enemigos</h2>
+            <ul className="cs-roster">{renderRoster(foes)}</ul>
+          </section>
+        </aside>
       </div>
 
       {log.length > 0 && (
-        <details className="cbt-log">
-          <summary>Historial ({log.length})</summary>
-          {log
-            .slice()
-            .reverse()
-            .map((l, i) => (
-              <p key={i}>{l}</p>
-            ))}
+        <details className="cs-log">
+          <summary>Qué pasó en el combate ({log.length})</summary>
+          <ol>
+            {log
+              .slice()
+              .reverse()
+              .map((l, i) => (
+                <li key={i}>{l}</li>
+              ))}
+          </ol>
         </details>
       )}
 
-      {animationQueue.map(anim => (
-        <CombatAnimation
-          key={anim.id}
-          type={anim.type}
-          value={anim.value}
-          x={anim.x}
-          y={anim.y}
-        />
+      {animationQueue.map((anim) => (
+        <CombatAnimation key={anim.id} type={anim.type} value={anim.value} x={anim.x} y={anim.y} />
       ))}
     </div>
   );

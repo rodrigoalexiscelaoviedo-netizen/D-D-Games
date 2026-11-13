@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Guidebook } from '../Layout/Guidebook';
-import { Step } from '../Shared/Step';
 import { fmtMod, applyRacialBonuses, getRacialBonuses } from '../../lib/dnd';
 import { CLASS_STAT_ARRAYS, SKILLS_5E } from '../../lib/d5e-data';
 import { AVATAR_STYLES, getAvatarUrl } from '../../lib/avatar-styles';
 import type { Character } from '../../lib/types';
+import './character-form.css';
 
 const EMPTY: Partial<Character> = {
   character_name: '', player_name: '', appearance: 'human-warrior', race: '', character_class: '', subclass: '',
@@ -16,6 +16,25 @@ const EMPTY: Partial<Character> = {
   skill_proficiencies: [], conditions: [], inventory: [], spells: [],
   spell_slots: {}, languages: [], notes: '',
 };
+
+const STEPS = [
+  { title: 'Identidad', hint: 'Nombre, aspecto y origen.' },
+  { title: 'Atributos', hint: 'Fuerza, velocidad, vida y armadura.' },
+  { title: 'Equipo', hint: 'Habilidades, objetos y hechizos.' },
+  { title: 'Revisar', hint: 'Confirmá antes de guardar.' },
+];
+
+const STAT_FIELDS: Array<{ key: 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha'; name: string; abbr: string }> = [
+  { key: 'str', name: 'Fuerza', abbr: 'FUE' },
+  { key: 'dex', name: 'Destreza', abbr: 'DES' },
+  { key: 'con', name: 'Constitución', abbr: 'CON' },
+  { key: 'int', name: 'Inteligencia', abbr: 'INT' },
+  { key: 'wis', name: 'Sabiduría', abbr: 'SAB' },
+  { key: 'cha', name: 'Carisma', abbr: 'CAR' },
+];
+
+const RACES = ['Humano', 'Elfo', 'Enano', 'Halfling', 'Tiefling', 'Orco', 'Dracónido', 'Gnomo', 'Semiélfico'];
+const CLASSES = ['Guerrero', 'Mago', 'Clérigo', 'Pícaro', 'Brujo', 'Bárbaro', 'Paladín', 'Artificiero', 'Bardo', 'Explorador', 'Monje', 'Hechicero'];
 
 export const CharacterForm = () => {
   const navigate = useNavigate();
@@ -77,7 +96,7 @@ export const CharacterForm = () => {
   const handleSave = async () => {
     setError('');
     if (!d.character_name?.trim()) {
-      setError('El personaje necesita al menos un nombre');
+      setError('Falta el nombre del personaje. Ponelo en el paso 1.');
       setStep(1);
       return;
     }
@@ -129,7 +148,6 @@ export const CharacterForm = () => {
       if (d.notes) payload.notes = d.notes;
       if (d.milestone) payload.milestone = d.milestone;
 
-
       let resErr;
       if (isEdit) {
         const { error } = await supabase.from('characters').update(payload).eq('id', characterId);
@@ -143,224 +161,353 @@ export const CharacterForm = () => {
       }
       navigate(`/campaign/${campaignId}/characters`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar');
+      setError(err instanceof Error ? `No se pudo guardar. ${err.message}` : 'No se pudo guardar. Probá de nuevo.');
     } finally {
       setSaving(false);
     }
   };
 
-  const StatInput = ({ label, k }: { label: string; k: keyof Character }) => (
-    <div className="stat-box">
-      <label>{label}</label>
-      <input type="number" className="stat-input" min="1" max="20"
-        value={(d[k] as number) ?? ''}
-        onChange={(e) => set({ [k]: e.target.value === '' ? undefined : Number(e.target.value) } as Partial<Character>)} />
-      <span className="stat-mod">{fmtMod(d[k] as number)}</span>
-    </div>
+  // Funciones que devuelven JSX (no componentes): así el input no se desmonta al escribir.
+  const renderNumber = (label: string, hint: string | undefined, k: keyof Character) => (
+    <label className="cf-field" key={k as string}>
+      <span className="cf-label">{label}</span>
+      <input
+        type="number"
+        className="cf-input"
+        value={(d[k] as number | undefined) ?? ''}
+        onChange={(e) => set({ [k]: e.target.value === '' ? undefined : Number(e.target.value) } as Partial<Character>)}
+      />
+      {hint && <span className="cf-hint">{hint}</span>}
+    </label>
   );
 
-  const Tooltip = ({ text, children }: { text: string; children: React.ReactNode }) => (
-    <span title={text} className="tooltip">{children}</span>
-  );
+  const renderStat = (name: string, abbr: string, k: keyof Character) => {
+    const value = d[k] as number | undefined;
+    return (
+      <div className="cf-stat" key={k as string}>
+        <label className="cf-stat-name" htmlFor={`stat-${k}`}>
+          {name} <span className="cf-abbr">({abbr})</span>
+        </label>
+        <input
+          id={`stat-${k}`}
+          type="number"
+          className="cf-input cf-stat-input"
+          min={1}
+          max={30}
+          value={value ?? ''}
+          onChange={(e) => set({ [k]: e.target.value === '' ? undefined : Number(e.target.value) } as Partial<Character>)}
+        />
+        <span className="cf-mod">Modificador {fmtMod(value as number)}</span>
+      </div>
+    );
+  };
 
+  const canSave = !!d.character_name?.trim() && !saving;
+  const isLast = step === STEPS.length;
 
   return (
-    <div className="wizard-container">
-      <div className="wizard-main">
-        {step === 1 && (
-          <Step title={isEdit ? "Editar: Lo esencial" : "Paso 1: Lo esencial"}>
-            <input className="input-field" placeholder="Nombre del personaje *"
-              value={d.character_name || ''} onChange={(e) => set({ character_name: e.target.value })} />
+    <div className="cf">
+      <header className="cf-top">
+        <button className="cf-back" onClick={() => navigate(`/campaign/${campaignId}/characters`)} disabled={saving}>
+          ← Volver a personajes
+        </button>
+        <div>
+          <p className="cf-eyebrow">{isEdit ? 'Editar personaje' : 'Nuevo personaje'}</p>
+          <h1>{d.character_name?.trim() || 'Sin nombre todavía'}</h1>
+        </div>
+      </header>
 
-            <label className="field-label">¿Quién juega este personaje?</label>
-            <label className="radio-row">
-              <input type="radio" checked={whoPlays === 'me'} onChange={() => setWhoPlays('me')} />
-              Yo lo juego
-            </label>
-            <label className="radio-row">
-              <input type="radio" checked={whoPlays === 'other'} onChange={() => setWhoPlays('other')} />
-              Otro jugador
-            </label>
-            {whoPlays === 'other' && (
-              <input className="input-field" placeholder="Nombre del jugador (opcional)"
-                value={d.player_name || ''} onChange={(e) => set({ player_name: e.target.value })} />
-            )}
-
-            <label className="field-label">¿Cómo querés que se vea?</label>
-            <div className="avatar-grid">
-              {AVATAR_STYLES.map((style) => (
+      <nav className="cf-steps" aria-label="Pasos para crear el personaje">
+        <ol>
+          {STEPS.map((s, i) => {
+            const n = i + 1;
+            const active = n === step;
+            return (
+              <li key={s.title}>
                 <button
-                  key={style.id}
                   type="button"
-                  className={`avatar-btn ${d.appearance === style.id ? 'avatar-selected' : ''}`}
-                  onClick={() => set({ appearance: style.id })}
+                  className={`cf-step ${active ? 'is-active' : ''} ${n < step ? 'is-done' : ''}`}
+                  aria-current={active ? 'step' : undefined}
+                  onClick={() => setStep(n)}
                 >
-                  <img
-                    src={getAvatarUrl(style.seed)}
-                    alt={style.name}
-                    className="avatar-img"
-                  />
-                  <span className="avatar-label">{style.name}</span>
+                  <span className="cf-step-num">{n < step ? '✓' : n}</span>
+                  <span className="cf-step-text">
+                    <strong>{s.title}</strong>
+                    <span>{s.hint}</span>
+                  </span>
                 </button>
-              ))}
-            </div>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
 
-            <div className="grid-2">
-              <label className="field-label">
-                <Tooltip text="Tu origen. Otorga bonificadores. Ej: Elfo +2 DES">
-                  Raza (opcional)
-                </Tooltip>
-                <select className="input-field"
-                  value={d.race || ''} onChange={(e) => handleRaceChange(e.target.value)}>
-                  <option value="">Elegir raza</option>
-                  {['Humano', 'Elfo', 'Enano', 'Halfling', 'Tiefling', 'Orco', 'Dracónido', 'Gnomo', 'Semiélfico'].map(r => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="field-label">
-                <Tooltip text="Tu rol en combate. Ej: Mago lanza hechizos, Guerrero ataca">
-                  Clase (opcional)
-                </Tooltip>
-                <select className="input-field"
-                  value={d.character_class || ''} onChange={(e) => set({ character_class: e.target.value })}>
-                  <option value="">Elegir clase</option>
-                  {['Guerrero', 'Mago', 'Clérigo', 'Pícaro', 'Brujo', 'Bárbaro', 'Paladín', 'Artificiero', 'Bardo', 'Explorador', 'Monje', 'Hechicero'].map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </label>
-              <input className="input-field" placeholder="Subclase (opcional)"
-                value={d.subclass || ''} onChange={(e) => set({ subclass: e.target.value })} />
-              <input className="input-field" placeholder="Trasfondo (opcional)"
-                value={d.background || ''} onChange={(e) => set({ background: e.target.value })} />
-            </div>
+      <div className="cf-body">
+        <main className="cf-main">
+          {step === 1 && (
+            <section className="cf-card" aria-labelledby="cf-s1">
+              <h2 id="cf-s1">Identidad del personaje</h2>
 
-            {d.race && (
-              <p className="bonus-info">
-                <strong>Bonificadores de {d.race}:</strong> {getRacialBonuses(d.race)?.description}
+              <label className="cf-field">
+                <span className="cf-label">Nombre del personaje <span className="cf-required">(obligatorio)</span></span>
+                <input
+                  className="cf-input"
+                  placeholder="Ej: Lyra Vance"
+                  value={d.character_name || ''}
+                  onChange={(e) => set({ character_name: e.target.value })}
+                />
+              </label>
+
+              <fieldset className="cf-fieldset">
+                <legend className="cf-label">¿Quién juega este personaje?</legend>
+                <div className="cf-choice-row">
+                  <label className={`cf-choice ${whoPlays === 'me' ? 'is-on' : ''}`}>
+                    <input type="radio" name="who" checked={whoPlays === 'me'} onChange={() => setWhoPlays('me')} />
+                    <span>
+                      <strong>Lo juego yo</strong>
+                      <span className="cf-hint">Aparece como tuyo en la campaña.</span>
+                    </span>
+                  </label>
+                  <label className={`cf-choice ${whoPlays === 'other' ? 'is-on' : ''}`}>
+                    <input type="radio" name="who" checked={whoPlays === 'other'} onChange={() => setWhoPlays('other')} />
+                    <span>
+                      <strong>Lo juega otra persona</strong>
+                      <span className="cf-hint">Podés anotar su nombre.</span>
+                    </span>
+                  </label>
+                </div>
+                {whoPlays === 'other' && (
+                  <input
+                    className="cf-input"
+                    placeholder="Nombre de quien lo juega (opcional)"
+                    value={d.player_name || ''}
+                    onChange={(e) => set({ player_name: e.target.value })}
+                  />
+                )}
+              </fieldset>
+
+              <fieldset className="cf-fieldset">
+                <legend className="cf-label">¿Cómo se ve?</legend>
+                <div className="cf-avatars">
+                  {AVATAR_STYLES.map((style) => {
+                    const on = d.appearance === style.id;
+                    return (
+                      <button
+                        key={style.id}
+                        type="button"
+                        className={`cf-avatar ${on ? 'is-on' : ''}`}
+                        aria-pressed={on}
+                        onClick={() => set({ appearance: style.id })}
+                      >
+                        <img src={getAvatarUrl(style.seed)} alt="" className="cf-avatar-img" />
+                        <span>{style.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <div className="cf-grid">
+                <label className="cf-field">
+                  <span className="cf-label">Raza <span className="cf-optional">(opcional)</span></span>
+                  <select className="cf-input" value={d.race || ''} onChange={(e) => handleRaceChange(e.target.value)}>
+                    <option value="">Elegir raza</option>
+                    {RACES.map((r) => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                  <span className="cf-hint">Le da bonificadores a sus atributos.</span>
+                </label>
+
+                <label className="cf-field">
+                  <span className="cf-label">Clase <span className="cf-optional">(opcional)</span></span>
+                  <select className="cf-input" value={d.character_class || ''} onChange={(e) => set({ character_class: e.target.value })}>
+                    <option value="">Elegir clase</option>
+                    {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <span className="cf-hint">Define cómo pelea y qué sabe hacer.</span>
+                </label>
+
+                <label className="cf-field">
+                  <span className="cf-label">Subclase <span className="cf-optional">(opcional)</span></span>
+                  <input className="cf-input" value={d.subclass || ''} onChange={(e) => set({ subclass: e.target.value })} />
+                </label>
+
+                <label className="cf-field">
+                  <span className="cf-label">Trasfondo <span className="cf-optional">(opcional)</span></span>
+                  <input className="cf-input" placeholder="Ej: Soldado, Erudito" value={d.background || ''} onChange={(e) => set({ background: e.target.value })} />
+                </label>
+              </div>
+
+              {d.race && (
+                <p className="cf-note">
+                  <strong>Bonificadores de {d.race}:</strong> {getRacialBonuses(d.race)?.description}
+                </p>
+              )}
+            </section>
+          )}
+
+          {step === 2 && (
+            <section className="cf-card" aria-labelledby="cf-s2">
+              <h2 id="cf-s2">Atributos y combate</h2>
+
+              {d.character_class && (
+                <div className="cf-suggest">
+                  <p className="cf-hint">Si no sabés qué valores poner, te sugerimos valores típicos para {d.character_class}. Después podés cambiarlos.</p>
+                  <button type="button" className="cf-btn cf-btn-ghost" onClick={() => handleSuggestStats(d.character_class!)}>
+                    Usar valores sugeridos para {d.character_class}
+                  </button>
+                </div>
+              )}
+
+              <p className="cf-note">
+                Cada atributo va de 1 a 20 (o más). El <strong>modificador</strong> es lo que se suma en las tiradas:
+                se calcula restando 10, dividiendo por 2 y redondeando hacia abajo.
               </p>
-            )}
-          </Step>
-        )}
 
-        {step === 2 && (
-          <Step title="Paso 2: Atributos y combate">
-            {d.character_class && (
-              <button type="button" className="btn-secondary" style={{ marginBottom: '1rem' }}
-                onClick={() => handleSuggestStats(d.character_class!)}>
-                💡 Sugerir stats para {d.character_class}
-              </button>
-            )}
+              <div className="cf-stats">
+                {STAT_FIELDS.map((s) => renderStat(s.name, s.abbr, s.key))}
+              </div>
 
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#b3a488' }}>
-              Atributos (modif. racial ya aplicado)
-            </label>
-            <div className="stats-row">
-              <StatInput label="FUE" k="str" /><StatInput label="DES" k="dex" />
-              <StatInput label="CON" k="con" /><StatInput label="INT" k="int" />
-              <StatInput label="SAB" k="wis" /><StatInput label="CAR" k="cha" />
-            </div>
+              <div className="cf-grid">
+                {renderNumber('Nivel', 'Sube al ganar experiencia.', 'level')}
+                {renderNumber('Armadura (CA)', 'Cuánto cuesta acertarle al personaje.', 'armor_class')}
+                {renderNumber('Vida actual', 'Puntos de golpe (PG) ahora mismo.', 'hp_current')}
+                {renderNumber('Vida máxima', 'El tope de puntos de golpe.', 'hp_max')}
+                {renderNumber('Velocidad (en pies)', 'Cuánto se mueve por turno.', 'speed')}
+                {renderNumber('Bonificador de competencia', 'Sube con el nivel. Se suma a lo que sabe hacer.', 'proficiency_bonus')}
+              </div>
+            </section>
+          )}
 
-            <div className="grid-2">
-              <label className="field-label">Nivel
-                <input type="number" className="input-field" value={d.level ?? ''} onChange={(e) => set({ level: Number(e.target.value) })} /></label>
-              <label className="field-label">CA (Clase de Armadura)
-                <input type="number" className="input-field" value={d.armor_class ?? ''} onChange={(e) => set({ armor_class: Number(e.target.value) })} /></label>
-              <label className="field-label">PV actuales
-                <input type="number" className="input-field" value={d.hp_current ?? ''} onChange={(e) => set({ hp_current: Number(e.target.value) })} /></label>
-              <label className="field-label">PV máximos
-                <input type="number" className="input-field" value={d.hp_max ?? ''} onChange={(e) => set({ hp_max: Number(e.target.value) })} /></label>
-              <label className="field-label">Velocidad (pies)
-                <input type="number" className="input-field" value={d.speed ?? ''} onChange={(e) => set({ speed: Number(e.target.value) })} /></label>
-              <label className="field-label">Bonif. competencia
-                <input type="number" className="input-field" value={d.proficiency_bonus ?? ''} onChange={(e) => set({ proficiency_bonus: Number(e.target.value) })} /></label>
-            </div>
-          </Step>
-        )}
+          {step === 3 && (
+            <section className="cf-card" aria-labelledby="cf-s3">
+              <h2 id="cf-s3">Habilidades, equipo y magia</h2>
 
-        {step === 3 && (
-          <Step title="Paso 3: Competencias, magia e inventario">
-            <label className="field-label">Habilidades competentes</label>
-            <div className="chip-grid">
-              {SKILLS_5E.map((s) => (
-                <button key={s} type="button"
-                  className={`chip ${(d.skill_proficiencies || []).includes(s) ? 'chip-on' : ''}`}
-                  onClick={() => toggleInArray('skill_proficiencies', s)}>{s}</button>
-              ))}
-            </div>
+              <fieldset className="cf-fieldset">
+                <legend className="cf-label">¿En qué es bueno?</legend>
+                <p className="cf-hint">Tocá las habilidades en las que el personaje está entrenado.</p>
+                <div className="cf-chips">
+                  {SKILLS_5E.map((s) => {
+                    const on = (d.skill_proficiencies || []).includes(s);
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        className={`cf-chip ${on ? 'is-on' : ''}`}
+                        aria-pressed={on}
+                        onClick={() => toggleInArray('skill_proficiencies', s)}
+                      >
+                        {s}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
 
-            <label className="field-label">Idiomas (separados por coma)</label>
-            <input className="input-field" placeholder="Común, Élfico, Enano..."
-              value={(d.languages || []).join(', ')}
-              onChange={(e) => set({ languages: e.target.value.split(',').map(x => x.trim()).filter(Boolean) })} />
+              <label className="cf-field">
+                <span className="cf-label">Idiomas</span>
+                <input
+                  className="cf-input"
+                  placeholder="Ej: Común, Élfico"
+                  value={(d.languages || []).join(', ')}
+                  onChange={(e) => set({ languages: e.target.value.split(',').map(x => x.trim()).filter(Boolean) })}
+                />
+                <span className="cf-hint">Separalos con coma.</span>
+              </label>
 
-            <label className="field-label">Inventario (un objeto por línea)</label>
-            <textarea className="input-field" rows={4} placeholder="Espada larga&#10;Poción de curación x2&#10;Cuerda (50 pies)"
-              value={(d.inventory || []).map(i => i.name).join('\n')}
-              onChange={(e) => set({ inventory: e.target.value.split('\n').map(x => x.trim()).filter(Boolean).map(name => ({ name })) })} />
+              <label className="cf-field">
+                <span className="cf-label">Equipo</span>
+                <textarea
+                  className="cf-input cf-textarea"
+                  rows={4}
+                  placeholder={'Espada larga\nPoción de curación x2\nCuerda (15 m)'}
+                  value={(d.inventory || []).map(i => i.name).join('\n')}
+                  onChange={(e) => set({ inventory: e.target.value.split('\n').map(x => x.trim()).filter(Boolean).map(name => ({ name })) })}
+                />
+                <span className="cf-hint">Un objeto por línea.</span>
+              </label>
 
-            <label className="field-label">Hechizos (uno por línea)</label>
-            <textarea className="input-field" rows={4} placeholder="Proyectil mágico&#10;Curar heridas&#10;Escudo"
-              value={(d.spells || []).map(s => s.name).join('\n')}
-              onChange={(e) => set({ spells: e.target.value.split('\n').map(x => x.trim()).filter(Boolean).map(name => ({ name })) })} />
+              <label className="cf-field">
+                <span className="cf-label">Hechizos</span>
+                <textarea
+                  className="cf-input cf-textarea"
+                  rows={4}
+                  placeholder={'Proyectil mágico\nCurar heridas\nEscudo'}
+                  value={(d.spells || []).map(s => s.name).join('\n')}
+                  onChange={(e) => set({ spells: e.target.value.split('\n').map(x => x.trim()).filter(Boolean).map(name => ({ name })) })}
+                />
+                <span className="cf-hint">Uno por línea. Dejalo vacío si no lanza hechizos.</span>
+              </label>
 
-            <label className="field-label">Rasgos de personalidad / notas</label>
-            <textarea className="input-field" rows={3} placeholder="Personalidad, ideales, vínculos, defectos..."
-              value={d.notes || ''} onChange={(e) => set({ notes: e.target.value })} />
-          </Step>
-        )}
+              <label className="cf-field">
+                <span className="cf-label">Personalidad y notas</span>
+                <textarea
+                  className="cf-input cf-textarea"
+                  rows={3}
+                  placeholder="Cómo habla, qué le importa, qué le da miedo..."
+                  value={d.notes || ''}
+                  onChange={(e) => set({ notes: e.target.value })}
+                />
+              </label>
+            </section>
+          )}
 
-        {step === 4 && (
-          <Step title="Paso 4: Revisar y guardar">
-            <div className="summary">
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', marginBottom: '1rem' }}>
+          {step === 4 && (
+            <section className="cf-card" aria-labelledby="cf-s4">
+              <h2 id="cf-s4">Revisá antes de guardar</h2>
+              <div className="cf-review">
                 {d.appearance && (
                   <img
                     src={getAvatarUrl(AVATAR_STYLES.find(s => s.id === d.appearance)?.seed || 'default')}
-                    alt="Tu personaje"
-                    style={{
-                      width: '80px',
-                      height: '80px',
-                      borderRadius: '8px',
-                      border: '2px solid var(--gold)',
-                    }}
+                    alt=""
+                    className="cf-review-img"
                   />
                 )}
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: '1.25rem' }}><strong>{d.character_name || '(sin nombre)'}</strong></p>
-                  <p style={{ margin: '0.25rem 0', color: '#b3a488' }}>
-                    {[d.race, d.character_class, d.subclass].filter(Boolean).join(' · ') || 'Sin clase/raza'}
+                <div>
+                  <p className="cf-review-name">{d.character_name?.trim() || '(sin nombre)'}</p>
+                  <p className="cf-hint">
+                    {[d.race, d.character_class, d.subclass].filter(Boolean).join(' · ') || 'Sin raza ni clase todavía'}
                   </p>
                 </div>
               </div>
-              <p>Nivel {d.level ?? '—'} · CA {d.armor_class ?? '—'} · PV {d.hp_current ?? '—'}/{d.hp_max ?? '—'}</p>
-              <p>FUE {fmtMod(d.str)} DES {fmtMod(d.dex)} CON {fmtMod(d.con)} INT {fmtMod(d.int)} SAB {fmtMod(d.wis)} CAR {fmtMod(d.cha)}</p>
-              <p>{(d.skill_proficiencies || []).length} competencias · {(d.inventory || []).length} objetos · {(d.spells || []).length} hechizos</p>
-            </div>
-          </Step>
-        )}
+              <ul className="cf-review-list">
+                <li>Nivel {d.level ?? '—'}</li>
+                <li>Armadura (CA) {d.armor_class ?? '—'}</li>
+                <li>Vida {d.hp_current ?? '—'} de {d.hp_max ?? '—'}</li>
+                <li>Velocidad {d.speed ?? '—'} pies</li>
+                <li>{(d.skill_proficiencies || []).length} habilidades · {(d.inventory || []).length} objetos · {(d.spells || []).length} hechizos</li>
+              </ul>
+              <p className="cf-note">
+                Fuerza {fmtMod(d.str)} · Destreza {fmtMod(d.dex)} · Constitución {fmtMod(d.con)} · Inteligencia {fmtMod(d.int)} · Sabiduría {fmtMod(d.wis)} · Carisma {fmtMod(d.cha)}
+              </p>
+            </section>
+          )}
 
-        {error && <p className="error-text">{error}</p>}
+          {error && <p className="cf-error" role="alert">{error}</p>}
 
-        <div className="wizard-buttons">
-          <button onClick={() => step > 1 ? setStep(step - 1) : navigate(`/campaign/${campaignId}/characters`)} disabled={saving} className="btn-secondary">
-            {step > 1 ? '← Atrás' : 'Cancelar'}
-          </button>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn-secondary" onClick={handleSave} disabled={saving || !d.character_name?.trim()}>
-              {saving ? 'Guardando...' : 'Guardar ya'}
+          <footer className="cf-footer">
+            <button
+              type="button"
+              className="cf-btn cf-btn-ghost"
+              onClick={() => (step > 1 ? setStep(step - 1) : navigate(`/campaign/${campaignId}/characters`))}
+              disabled={saving}
+            >
+              {step > 1 ? '← Anterior' : 'Cancelar'}
             </button>
-            {step < 4
-              ? <button className="btn-primary" onClick={() => setStep(step + 1)}>Siguiente →</button>
-              : <button className="btn-primary" onClick={handleSave} disabled={saving || !d.character_name?.trim()}>
-                  {saving ? 'Guardando...' : (isEdit ? 'Guardar cambios' : '¡Crear!')}
-                </button>}
-          </div>
-        </div>
-      </div>
 
-      <Guidebook context="character_creation" step={step} />
+            {isLast ? (
+              <button type="button" className="cf-btn cf-btn-primary" onClick={handleSave} disabled={!canSave}>
+                {saving ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Crear personaje'}
+              </button>
+            ) : (
+              <button type="button" className="cf-btn cf-btn-primary" onClick={() => setStep(step + 1)}>
+                Siguiente →
+              </button>
+            )}
+          </footer>
+        </main>
+
+        <Guidebook context="character_creation" step={step} />
+      </div>
     </div>
   );
 };

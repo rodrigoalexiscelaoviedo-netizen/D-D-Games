@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { Scene } from '../../lib/adventure-types';
+import '../Adventure/playthrough-screen.css';
+import '../Adventure/playthrough-end.css';
 
 interface Props {
   scene: Scene;
@@ -14,6 +16,15 @@ interface MonsterStats {
   count: number;
   note?: string;
 }
+
+// Dificultad en palabras simples, para un DM que no es experto en balance.
+const difficultyFor = (cr: number): { label: string; detail: string; tone: 'easy' | 'fair' | 'hard' | 'deadly' } => {
+  if (cr === 0) return { label: 'Muy fácil', detail: 'Casi no amenaza al grupo.', tone: 'easy' };
+  if (cr <= 3) return { label: 'Justo', detail: `Un desafío parejo para 4 personajes de nivel ${Math.ceil(cr)}.`, tone: 'fair' };
+  if (cr <= 8) return { label: 'Difícil', detail: `Puede costar recursos a 4 personajes de nivel ${Math.ceil(cr)}.`, tone: 'hard' };
+  if (cr <= 15) return { label: 'Muy peligroso', detail: `Puede costar la vida de algún personaje de nivel ${Math.ceil(cr)}.`, tone: 'deadly' };
+  return { label: 'Mortal', detail: 'Conviene dividirlo en encuentros más pequeños.', tone: 'deadly' };
+};
 
 export const EncounterPrepView = ({ scene, onInitiateCombat, isLoading }: Props) => {
   const [monsters, setMonsters] = useState<MonsterStats[]>([]);
@@ -37,18 +48,14 @@ export const EncounterPrepView = ({ scene, onInitiateCombat, isLoading }: Props)
           .eq('name', bestiary_name)
           .single();
 
-        if (monster) {
-          setMonsters([
-            {
-              name: monster.name,
-              cr: monster.challenge_rating,
-              count,
-              note,
-            },
-          ]);
-        } else {
-          setMonsters([{ name: bestiary_name, cr: null, count, note }]);
-        }
+        setMonsters([
+          {
+            name: monster?.name ?? bestiary_name,
+            cr: monster?.challenge_rating ?? null,
+            count,
+            note,
+          },
+        ]);
       } catch (error) {
         console.error('Error loading encounter:', error);
         if (scene.encounter) {
@@ -67,59 +74,53 @@ export const EncounterPrepView = ({ scene, onInitiateCombat, isLoading }: Props)
     })();
   }, [scene.encounter]);
 
-  const crBalanceRef = (cr: number): string => {
-    if (cr === 0) return 'Insignificante (más un relleno que un combate)';
-    if (cr <= 3) return `Equilibrado para 4 personajes de nivel ${Math.ceil(cr)}`;
-    if (cr <= 8) return `Desafiante para 4 personajes de nivel ${Math.ceil(cr)}`;
-    if (cr <= 15) return `Peligroso para 4 personajes de nivel ${Math.ceil(cr)} (puede resultar en muerte)`;
-    return `Mortal: considerar múltiples encuentros más pequeños`;
-  };
-
   return (
-    <div className="encounter-prep">
-      <h3>Encuentro</h3>
+    <div className="pe-encounter">
+      <div className="pe-encounter-head">
+        <h2>Antes de empezar el combate</h2>
+        <p className="pe-hint">Revisá quién enfrenta al grupo. Después podés iniciar el combate en pantalla.</p>
+      </div>
 
       {loading ? (
-        <p>Cargando encuentro...</p>
+        <p className="pe-hint">Cargando el encuentro…</p>
       ) : (
-        <>
-          <div className="encounter-list">
-            {monsters.map((m, idx) => (
-              <div key={idx} className="encounter-entry">
-                <div className="encounter-name">
-                  <strong>{m.count}×</strong> {m.name}
+        <ul className="pe-enemies">
+          {monsters.map((m, idx) => {
+            const d = m.cr !== null ? difficultyFor(m.cr) : null;
+            return (
+              <li key={idx} className="pe-enemy">
+                <div className="pe-enemy-main">
+                  <span className="pe-enemy-count">{m.count}×</span>
+                  <span className="pe-enemy-name">{m.name}</span>
                 </div>
-                {m.cr !== null && (
-                  <div className="encounter-cr">
-                    <span className="cr-badge">CR {m.cr}</span>
-                    <span className="cr-note">{crBalanceRef(m.cr)}</span>
-                  </div>
+                {d ? (
+                  <p className={`pe-difficulty pe-tone-${d.tone}`}>
+                    <strong>Dificultad: {d.label}.</strong> {d.detail}
+                  </p>
+                ) : (
+                  <p className="pe-hint">No encontramos la dificultad de este monstruo en el bestiario.</p>
                 )}
-                {m.note && <p className="encounter-note">Nota DM: {m.note}</p>}
-              </div>
-            ))}
-          </div>
+                {m.note && <p className="pe-hint">Nota para vos: {m.note}</p>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
-          <div className="encounter-reference">
-            <p className="reference-label">Referencia de balance (4 personajes):</p>
-            <ul className="reference-list">
-              <li>CR = Nivel → Encuentro equilibrado</li>
-              <li>CR = Nivel + 1 → Desafiante</li>
-              <li>CR = Nivel + 2 → Peligroso</li>
-              <li>CR ≥ Nivel + 3 → Mortal</li>
-            </ul>
-          </div>
+      <details className="pe-help">
+        <summary>¿Cómo leo la dificultad?</summary>
+        <ul>
+          <li><strong>Justo:</strong> el grupo gana con esfuerzo normal.</li>
+          <li><strong>Difícil:</strong> pueden perder pociones o conjuros.</li>
+          <li><strong>Muy peligroso:</strong> alguien puede caer.</li>
+          <li><strong>Mortal:</strong> mejor separar a los enemigos.</li>
+        </ul>
+      </details>
 
-          {onInitiateCombat && (
-            <button
-              className="btn-primary"
-              onClick={onInitiateCombat}
-              disabled={isLoading}
-            >
-              Iniciar combate
-            </button>
-          )}
-        </>
+      {onInitiateCombat && (
+        <button className="ps-btn ps-btn-primary pe-start" onClick={onInitiateCombat} disabled={isLoading}>
+          Empezar el combate en pantalla
+        </button>
       )}
     </div>
   );

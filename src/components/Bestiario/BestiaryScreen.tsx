@@ -2,376 +2,152 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchCreatures, getCreaturesByCR, importOpen5eMonstersToSupabase } from '../../lib/open5e-fetcher';
 import type { Creature } from '../../lib/open5e-fetcher';
+import { creatureImage } from '../../lib/creature-images';
+import './bestiary.css';
+
+const CR_OPTIONS = [0.125, 0.25, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+const crLabel = (cr: number) => (cr === 0.125 ? '1/8' : cr === 0.25 ? '1/4' : cr === 0.5 ? '1/2' : String(cr));
 
 export const BestiaryScreen = () => {
   const navigate = useNavigate();
   const [creatures, setCreatures] = useState<Creature[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedCR, setSelectedCR] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
-  const [importProgress, setImportProgress] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Creature | null>(null);
 
   useEffect(() => {
-    loadInitial();
+    void load();
   }, []);
 
-  const loadInitial = async () => {
+  const load = async (q = '') => {
     setLoading(true);
-    const data = await searchCreatures('');
-    setCreatures(data);
+    setCreatures(await searchCreatures(q));
     setLoading(false);
   };
 
-  const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
+  const onSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setSearching(true);
-
-    if (query.trim()) {
-      const results = await searchCreatures(query);
-      setCreatures(results);
-    } else {
-      const data = await searchCreatures('');
-      setCreatures(data);
-    }
-
-    setSearching(false);
+    setSelectedCR(null);
+    void load(query.trim());
   };
 
-  const handleFilterByCR = async (cr: number) => {
+  const onCR = async (cr: number | null) => {
     setSelectedCR(cr);
-    const results = await getCreaturesByCR(cr);
-    setCreatures(results);
+    setQuery('');
+    if (cr === null) return load('');
+    setLoading(true);
+    setCreatures(await getCreaturesByCR(cr));
+    setLoading(false);
   };
 
-  const handleImportOpen5e = async () => {
-    if (!window.confirm('Importar 500 monstruos de Open5e? (pueden tomar 2-3 minutos)')) return;
-
+  const onImport = async () => {
     setImporting(true);
-    const result = await importOpen5eMonstersToSupabase(500, (current, total) => {
-      setImportProgress(Math.round((current / total) * 100));
-    });
-
+    setProgress(0);
+    setNotice('Importando monstruos del SRD desde Open5e… no cierres esta pestaña.');
+    const r = await importOpen5eMonstersToSupabase(500, (cur, total) => setProgress(Math.round((cur / total) * 100)));
     setImporting(false);
-    alert(`Import completo:\n✓ ${result.success} exitosos\n✗ ${result.failed} fallidos`);
-    if (result.errors.length > 0) {
-      console.error('Import errors:', result.errors);
-    }
-    loadInitial();
+    setNotice(`Listo: ${r.success} criaturas disponibles${r.failed ? `, ${r.failed} con error` : ''}.`);
+    void load('');
   };
-
-  const crOptions = [0.125, 0.25, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
   return (
-    <div className="bestiary-page page-pad">
-      <button className="btn-secondary" onClick={() => navigate('/dashboard')}>
-        ← Volver
-      </button>
+    <div className="bestiary">
+      <header className="bestiary-hero">
+        <button className="btn-ghost" onClick={() => navigate('/dashboard')}>← Volver</button>
+        <div>
+          <p className="eyebrow">Libro de criaturas</p>
+          <h1>Bestiario</h1>
+          <p className="lede">Monstruos del SRD con su ficha de combate, listos para usar en tus encuentros.</p>
+        </div>
+        <button className="btn-primary" onClick={onImport} disabled={importing}>
+          {importing ? `Importando… ${progress}%` : 'Cargar monstruos (Open5e)'}
+        </button>
+      </header>
 
-      <h1>Bestiario</h1>
+      {notice && <div className="notice" role="status">{notice}</div>}
 
-      <form onSubmit={handleSearch} className="search-form">
+      <form className="bestiary-search" onSubmit={onSearch}>
         <input
-          type="text"
-          placeholder="Buscar criatura..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="input-field"
+          placeholder="Buscar por nombre: dragón, esqueleto, lobo…"
+          aria-label="Buscar criatura"
         />
-        <button type="submit" className="btn-primary" disabled={searching}>
-          {searching ? 'Buscando...' : 'Buscar'}
-        </button>
+        <button className="btn-primary" type="submit">Buscar</button>
       </form>
 
-      <div className="bestiary-controls">
-        <div className="cr-filters">
-          <button
-            className={`btn-small ${selectedCR === null ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => {
-              setSelectedCR(null);
-              loadInitial();
-            }}
-          >
-            Todos
+      <div className="cr-chips" role="group" aria-label="Filtrar por desafío">
+        <button className={selectedCR === null ? 'chip on' : 'chip'} onClick={() => onCR(null)}>Todos</button>
+        {CR_OPTIONS.map((cr) => (
+          <button key={cr} className={selectedCR === cr ? 'chip on' : 'chip'} onClick={() => onCR(cr)}>
+            FP {crLabel(cr)}
           </button>
-          {crOptions.map((cr) => (
-            <button
-              key={cr}
-              className={`btn-small ${selectedCR === cr ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => handleFilterByCR(cr)}
-            >
-              CR {cr}
-            </button>
-          ))}
-        </div>
-
-        <button
-          className="btn-secondary"
-          onClick={handleImportOpen5e}
-          disabled={importing}
-        >
-          {importing ? `Importando... ${importProgress}%` : '⬇️ Importar de Open5e'}
-        </button>
+        ))}
       </div>
 
       {loading ? (
-        <p>Cargando bestiario...</p>
+        <p className="state">Cargando bestiario…</p>
       ) : creatures.length === 0 ? (
-        <p className="empty-state">No se encontraron criaturas.</p>
-      ) : (
-        <div className="creatures-grid">
-          {creatures.map((creature) => (
-            <div key={creature.id} className="creature-card">
-              <div className="creature-header">
-                <h3>{creature.name}</h3>
-                <span className="creature-cr">CR {creature.cr}</span>
-              </div>
-
-              <div className="creature-meta">
-                <p>
-                  <strong>{creature.size}</strong> {creature.type}
-                </p>
-                <p className="creature-stats">
-                  HP: <strong>{creature.hp}</strong> | AC: <strong>{creature.ac}</strong>
-                </p>
-              </div>
-
-              <div className="creature-image-container">
-                <img
-                  src={`https://source.unsplash.com/featured/300x300?${encodeURIComponent(creature.name)}`}
-                  alt={creature.name}
-                  className="creature-image"
-                  loading="lazy"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/croodles/svg?seed=${encodeURIComponent(creature.name)}`;
-                  }}
-                />
-              </div>
-
-              <div className="creature-abilities">
-                <div className="stat-block">
-                  <span>STR</span> <strong>{creature.str}</strong>
-                </div>
-                <div className="stat-block">
-                  <span>DEX</span> <strong>{creature.dex}</strong>
-                </div>
-                <div className="stat-block">
-                  <span>CON</span> <strong>{creature.con}</strong>
-                </div>
-                <div className="stat-block">
-                  <span>INT</span> <strong>{creature.int}</strong>
-                </div>
-                <div className="stat-block">
-                  <span>WIS</span> <strong>{creature.wis}</strong>
-                </div>
-                <div className="stat-block">
-                  <span>CHA</span> <strong>{creature.cha}</strong>
-                </div>
-              </div>
-
-              {creature.speed && (
-                <p className="creature-detail">
-                  <strong>Velocidad:</strong> {creature.speed}
-                </p>
-              )}
-
-              {creature.damage_resistances && (
-                <p className="creature-detail">
-                  <strong>Resistencias:</strong> {creature.damage_resistances}
-                </p>
-              )}
-
-              {creature.damage_immunities && (
-                <p className="creature-detail">
-                  <strong>Inmunidades:</strong> {creature.damage_immunities}
-                </p>
-              )}
-
-              {creature.languages && (
-                <p className="creature-detail">
-                  <strong>Idiomas:</strong> {creature.languages}
-                </p>
-              )}
-
-              <span className={`source-badge ${creature.source}`}>{creature.source}</span>
-            </div>
-          ))}
+        <div className="empty">
+          <p className="empty-title">Todavía no hay criaturas cargadas</p>
+          <p>Tocá <strong>Cargar monstruos (Open5e)</strong> para traer el SRD completo, o buscá en las aventuras instaladas.</p>
         </div>
+      ) : (
+        <ul className="creature-grid">
+          {creatures.map((c) => (
+            <li key={c.id}>
+              <button className="creature-card" onClick={() => setDetail(c)}>
+                <img src={creatureImage(c.type)} alt="" loading="lazy" />
+                <div className="creature-body">
+                  <div className="creature-top">
+                    <span className="creature-name">{c.name}</span>
+                    <span className="cr-badge">FP {crLabel(Number(c.cr))}</span>
+                  </div>
+                  <p className="creature-kind">{[c.size, c.type].filter(Boolean).join(' · ')}</p>
+                  <p className="creature-core"><span>PG {c.hp}</span><span>CA {c.ac}</span></p>
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
 
-      <style>{`
-        .bestiary-page {
-          max-width: 1400px;
-        }
-
-        .search-form {
-          display: flex;
-          gap: 12px;
-          margin: 24px 0;
-        }
-
-        .search-form input {
-          flex: 1;
-          padding: 10px 14px;
-          border: 1px solid #666;
-          border-radius: 6px;
-          background: #1a1a1a;
-          color: #fff;
-          font-size: 14px;
-        }
-
-        .bestiary-controls {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 16px;
-          margin: 24px 0;
-          flex-wrap: wrap;
-        }
-
-        .cr-filters {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .creatures-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-          gap: 16px;
-          margin: 24px 0;
-        }
-
-        .creature-card {
-          background: #0d0d0d;
-          border: 1px solid #333;
-          border-radius: 8px;
-          padding: 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          transition: border-color 0.2s;
-        }
-
-        .creature-card:hover {
-          border-color: #a855f7;
-        }
-
-        .creature-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-        }
-
-        .creature-header h3 {
-          margin: 0;
-          font-size: 18px;
-          font-weight: 600;
-        }
-
-        .creature-cr {
-          background: #a855f7;
-          color: white;
-          padding: 4px 8px;
-          border-radius: 4px;
-          font-size: 12px;
-          font-weight: 600;
-        }
-
-        .creature-meta {
-          border-bottom: 1px solid #333;
-          padding-bottom: 8px;
-        }
-
-        .creature-meta p {
-          margin: 4px 0;
-          font-size: 14px;
-          color: #ccc;
-        }
-
-        .creature-stats {
-          color: #fff !important;
-        }
-
-        .creature-image-container {
-          display: flex;
-          justify-content: center;
-          margin: 12px 0;
-          border-radius: 8px;
-          overflow: hidden;
-          background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(168, 85, 247, 0.05));
-          padding: 8px;
-        }
-
-        .creature-image {
-          width: 100%;
-          max-width: 300px;
-          height: 200px;
-          object-fit: cover;
-          border-radius: 6px;
-        }
-
-        .creature-abilities {
-          display: grid;
-          grid-template-columns: repeat(6, 1fr);
-          gap: 8px;
-        }
-
-        .stat-block {
-          background: #1a1a1a;
-          padding: 8px 4px;
-          border-radius: 4px;
-          text-align: center;
-          font-size: 12px;
-        }
-
-        .stat-block span {
-          display: block;
-          color: #999;
-          font-weight: 600;
-        }
-
-        .stat-block strong {
-          display: block;
-          color: #fff;
-          font-size: 14px;
-          margin-top: 2px;
-        }
-
-        .creature-detail {
-          font-size: 13px;
-          color: #ccc;
-          margin: 4px 0;
-        }
-
-        .source-badge {
-          display: inline-block;
-          padding: 4px 8px;
-          border-radius: 4px;
-          font-size: 11px;
-          font-weight: 600;
-          text-transform: uppercase;
-          margin-top: 8px;
-        }
-
-        .source-badge.open5e {
-          background: #0d5a3d;
-          color: #4ade80;
-        }
-
-        .source-badge.custom {
-          background: #5a2d0d;
-          color: #fb923c;
-        }
-
-        .empty-state {
-          text-align: center;
-          color: #999;
-          padding: 40px 20px;
-          font-size: 16px;
-        }
-      `}</style>
+      {detail && (
+        <div className="sheet-backdrop" onClick={() => setDetail(null)}>
+          <article className="sheet" onClick={(e) => e.stopPropagation()} aria-label={detail.name}>
+            <button className="sheet-close" onClick={() => setDetail(null)} aria-label="Cerrar">×</button>
+            <img src={creatureImage(detail.type)} alt="" />
+            <div className="sheet-body">
+              <p className="eyebrow">{[detail.size, detail.type].filter(Boolean).join(' · ')}</p>
+              <h2>{detail.name}</h2>
+              <div className="sheet-core">
+                <div><span>FP</span><strong>{crLabel(Number(detail.cr))}</strong></div>
+                <div><span>PG</span><strong>{detail.hp}</strong></div>
+                <div><span>CA</span><strong>{detail.ac}</strong></div>
+              </div>
+              <div className="abilities">
+                {(['str', 'dex', 'con', 'int', 'wis', 'cha'] as const).map((k) => (
+                  <div key={k}>
+                    <span>{k.toUpperCase()}</span>
+                    <strong>{detail[k] ?? '—'}</strong>
+                  </div>
+                ))}
+              </div>
+              {detail.speed && <p><b>Velocidad:</b> {detail.speed}</p>}
+              {detail.damage_resistances && <p><b>Resistencias:</b> {detail.damage_resistances}</p>}
+              {detail.damage_immunities && <p><b>Inmunidades:</b> {detail.damage_immunities}</p>}
+              {detail.languages && <p><b>Idiomas:</b> {detail.languages}</p>}
+              {detail.abilities && <p className="sheet-text">{detail.abilities}</p>}
+              {detail.actions && <p className="sheet-text"><b>Acciones:</b> {detail.actions}</p>}
+            </div>
+          </article>
+        </div>
+      )}
     </div>
   );
 };
