@@ -12,7 +12,7 @@ const SCENE_TYPES: Array<{ value: string; label: string; hint: string }> = [
   { value: 'narracion', label: 'Narración', hint: 'Se describe algo y el grupo sigue.' },
   { value: 'exploration', label: 'Exploración', hint: 'El grupo recorre un lugar y busca cosas.' },
   { value: 'social', label: 'Escena social', hint: 'Conversación, negociación o engaño.' },
-  { value: 'combate', label: 'Combate', hint: 'Hay un encuentro con enemigos.' },
+  { value: 'combate', label: 'Combate', hint: 'Necesita un encuentro configurado y dos opciones: victoria y derrota.' },
 ];
 
 const typeLabel = (value: string) => SCENE_TYPES.find((t) => t.value === value)?.label ?? value;
@@ -217,6 +217,21 @@ export const AdventureEditor = () => {
 
   const handleSaveScene = async () => {
     if (!editingSceneId) return;
+
+    // Una escena de combate necesita un encuentro y dos opciones (victoria y derrota).
+    if (sceneForm.scene_type === 'combate') {
+      const current = scenes.find((s) => s.id === editingSceneId);
+      if (!current?.encounter) {
+        setError('Una escena de combate necesita un encuentro configurado (monstruo y cantidad). Esa parte se carga desde la aventura original o un módulo.');
+        return;
+      }
+      const { data: opts } = await supabase.from('scene_options').select('id').eq('scene_id', editingSceneId);
+      if ((opts ?? []).length < 2) {
+        setError('Una escena de combate necesita dos opciones: una para la victoria y otra para la derrota.');
+        return;
+      }
+    }
+
     try {
       const { data: rows, error: updError } = await supabase
         .from('scenes')

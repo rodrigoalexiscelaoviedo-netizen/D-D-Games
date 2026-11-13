@@ -23,6 +23,7 @@ export const CombatScreen = () => {
   const [busy, setBusy] = useState(false);
   const [pickingTarget, setPickingTarget] = useState<PickingFor>(null);
   const [classMap, setClassMap] = useState<Record<string, string>>({});
+  const [strMap, setStrMap] = useState<Record<string, number>>({});
   const [animationQueue, setAnimationQueue] = useState<Array<{ id: string; type: 'attack' | 'damage' | 'heal' | 'miss'; value?: number; x: number; y: number }>>([]);
 
   const refetch = useCallback(async () => {
@@ -49,13 +50,16 @@ export const CombatScreen = () => {
     if (charIds.length > 0) {
       const { data: chars } = await supabase
         .from('characters')
-        .select('id, character_class')
+        .select('id, character_class, str')
         .in('id', charIds);
       const map: Record<string, string> = {};
+      const strengths: Record<string, number> = {};
       (chars || []).forEach((c) => {
         map[c.id] = c.character_class;
+        strengths[c.id] = c.str;
       });
       setClassMap(map);
+      setStrMap(strengths);
     }
 
     const over = isCombatOver(p || []);
@@ -94,9 +98,14 @@ export const CombatScreen = () => {
 
   const commitTurn = async (opts: { newLog: string[]; targetId?: string; newTargetHp?: number }) => {
     if (opts.targetId != null && opts.newTargetHp != null) {
+      // Solo cambia el estado si cae inconsciente: así no se pierde una esquiva activa.
       await supabase
         .from('combat_participants')
-        .update({ hp_current: opts.newTargetHp, status: opts.newTargetHp <= 0 ? 'unconscious' : 'ready' })
+        .update(
+          opts.newTargetHp <= 0
+            ? { hp_current: opts.newTargetHp, status: 'unconscious' }
+            : { hp_current: opts.newTargetHp }
+        )
         .eq('id', opts.targetId);
     }
 
@@ -121,6 +130,11 @@ export const CombatScreen = () => {
     const idx = combat?.turn_index ?? 0;
     const nextIdx = nextAliveIndex(list, idx);
 
+    // La esquiva dura hasta el inicio del próximo turno de quien esquivó.
+    if (list[nextIdx]?.status === 'dodging') {
+      await supabase.from('combat_participants').update({ status: 'ready' }).eq('id', list[nextIdx].id);
+    }
+
     if (list[nextIdx]?.temp_ac_bonus > 0) {
       await supabase.from('combat_participants').update({ temp_ac_bonus: 0 }).eq('id', list[nextIdx].id);
     }
@@ -140,7 +154,13 @@ export const CombatScreen = () => {
     setBusy(true);
     setPickingTarget(null);
 
-    const result = resolveAttack(current.attack_bonus ?? 2, effectiveAC(target), current.damage_dice ?? 8);
+    const result = resolveAttack(
+      current.attack_bonus ?? 2,
+      effectiveAC(target),
+      current.damage_dice ?? 8,
+      current.is_player ? abilityMod(strMap[current.character_id]) : 0,
+      target.status === 'dodging' ? 'disadvantage' : 'normal'
+    );
     setLastRoll({ ...result, actorName: current.name, targetName: target.name });
     setPhase('showing_roll');
 
@@ -167,9 +187,10 @@ export const CombatScreen = () => {
     if (busy || !current) return;
     setBusy(true);
     setLastRoll(null);
-    await supabase.from('combat_participants').update({ temp_ac_bonus: 2 }).eq('id', current.id);
+    // Esquivar (regla de 5e): los ataques contra este personaje tienen desventaja hasta su próximo turno.
+    await supabase.from('combat_participants').update({ status: 'dodging' }).eq('id', current.id);
     await commitTurn({
-      newLog: [...log, `${current.name} se pone en guardia · CA ${effectiveAC(current)} → ${effectiveAC(current) + 2} hasta su próximo turno`],
+      newLog: [...log, `${current.name} esquiva: los ataques contra él tienen desventaja hasta su próximo turno`],
     });
     setBusy(false);
   };
@@ -214,7 +235,9 @@ export const CombatScreen = () => {
     const result = resolveAttack(
       (current.attack_bonus ?? 2) + (ability.bonusToHit ?? 0),
       effectiveAC(target),
-      ability.damageDice ?? 10
+      ability.damageDice ?? 10,
+      abilityMod(strMap[current.character_id]),
+      target.status === 'dodging' ? 'disadvantage' : 'normal'
     );
     setLastRoll({
       ...result,
@@ -287,7 +310,13 @@ export const CombatScreen = () => {
       return;
     }
 
-    const result = resolveAttack(current.attack_bonus ?? 3, effectiveAC(target), current.damage_dice ?? 6);
+    const result = resolveAttack(
+      current.attack_bonus ?? 3,
+      effectiveAC(target),
+      current.damage_dice ?? 6,
+      0,
+      target.status === 'dodging' ? 'disadvantage' : 'normal'
+    );
     setLastRoll({ ...result, actorName: current.name, targetName: target.name });
     setPhase('showing_roll');
 
@@ -372,7 +401,7 @@ export const CombatScreen = () => {
             </span>
             <span className="cs-row-status">
               {rowStatus(p)}
-              {p.temp_ac_bonus > 0 && <em className="cs-row-buff"> · CA {effectiveAC(p)} por defensa</em>}
+              {p.status === 'dodging' && <em className="cs-row-buff"> · esquivando</em>}
             </span>
           </div>
           <div
@@ -394,7 +423,7 @@ export const CombatScreen = () => {
       <header className="cs-top">
         <div className="cs-top-title">
           <p className="cs-eyebrow">Combate en curso</p>
-          <h1>Ronda {combat?.round ?? 1}</h1>
+          <h1>Ronda {Math.max(1, combat?.round ?? 1)}</h1>
         </div>
         <button className="cs-btn cs-btn-ghost" onClick={finish}>
           Salir del combate
@@ -500,7 +529,7 @@ export const CombatScreen = () => {
 
                   <button className="cs-action" disabled={busy} onClick={doDefend}>
                     <span className="cs-action-title">Defenderse</span>
-                    <span className="cs-action-sub">Sube 2 de CA hasta tu próximo turno: les cuesta más acertarte.</span>
+                    <span className="cs-action-sub">Hasta tu próximo turno, los ataques contra vos tienen desventaja.</span>
                   </button>
 
                   <button
@@ -513,13 +542,13 @@ export const CombatScreen = () => {
                   >
                     <span className="cs-action-title">{ability.name}</span>
                     <span className="cs-action-sub">
-                      {abilitySpent ? 'Ya la usaste en este combate.' : ability.description}
+                      {abilitySpent ? 'Ya la usaste en este combate.' : `Regla casera: ${ability.description}`}
                     </span>
                   </button>
 
                   <button className="cs-action" disabled={busy} onClick={doFlee}>
                     <span className="cs-action-title">Huir</span>
-                    <span className="cs-action-sub">Tirá Destreza. Con 12 o más, escapa del combate.</span>
+                    <span className="cs-action-sub">Regla casera: tirá Destreza. Con 12 o más, escapa del combate.</span>
                   </button>
                 </>
               );

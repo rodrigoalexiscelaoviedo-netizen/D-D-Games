@@ -21,13 +21,24 @@ export const rollInitiative = (dexterity: number) => {
   return { d20, bonus, total: d20 + bonus };
 };
 
+export type RollMode = 'normal' | 'advantage' | 'disadvantage';
+
+// Ventaja: se tiran dos d20 y se queda el mayor. Desventaja: el menor (regla de 5e).
+const rollD20 = (mode: RollMode): number => {
+  if (mode === 'normal') return roll(20);
+  const a = roll(20);
+  const b = roll(20);
+  return mode === 'advantage' ? Math.max(a, b) : Math.min(a, b);
+};
+
 export const resolveAttack = (
   attackBonus: number,
   targetAC: number,
   damageDice: number,
-  damageBonus: number = 0
+  damageBonus: number = 0,
+  mode: RollMode = 'normal'
 ): RollResult => {
-  const d20 = roll(20);
+  const d20 = rollD20(mode);
   const total = d20 + attackBonus;
   const fumble = d20 === 1;
   const critical = d20 === 20;
@@ -36,20 +47,22 @@ export const resolveAttack = (
   let damage = 0;
   if (hit) {
     const dmgRoll = roll(damageDice);
-    damage = critical
+    // Un golpe que acierta hace al menos 1 de daño, aunque el modificador sea negativo.
+    damage = Math.max(1, critical
       ? dmgRoll + roll(damageDice) + damageBonus
-      : dmgRoll + damageBonus;
+      : dmgRoll + damageBonus);
   }
 
+  const modeNote = mode === 'disadvantage' ? ' (con desventaja)' : mode === 'advantage' ? ' (con ventaja)' : '';
   let explanation = '';
   if (fumble) {
     explanation = `Sacó 1 natural — falla automática, no importa la CA.`;
   } else if (critical) {
     explanation = `Sacó 20 natural — crítico. Se tira el dado de daño dos veces.`;
   } else if (hit) {
-    explanation = `${d20} + ${attackBonus} de bonificador = ${total}, contra CA ${targetAC}. Alcanza, así que golpea.`;
+    explanation = `${d20} + ${attackBonus} de bonificador = ${total}, contra CA ${targetAC}${modeNote}. Alcanza, así que golpea.`;
   } else {
-    explanation = `${d20} + ${attackBonus} de bonificador = ${total}, contra CA ${targetAC}. Le faltaron ${targetAC - total} puntos.`;
+    explanation = `${d20} + ${attackBonus} de bonificador = ${total}, contra CA ${targetAC}${modeNote}. Le faltaron ${targetAC - total} puntos.`;
   }
 
   return { d20, bonus: attackBonus, total, targetAC, hit, critical, fumble, damage, explanation };

@@ -5,6 +5,7 @@ import { DMVisuals } from './SceneVisuals';
 import './playthrough-screen.css';
 
 interface Props {
+  campaignId?: string;
   scene: Scene;
   options: SceneOption[];
   hiddenOptions: SceneOption[];
@@ -33,6 +34,7 @@ const paragraphs = (text: string) =>
   text.split('\n\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>);
 
 export const SceneDMView = ({
+  campaignId,
   scene,
   options,
   hiddenOptions,
@@ -114,6 +116,7 @@ export const SceneDMView = ({
             {isCombat && (
               <>
                 <EncounterPrepView
+                  campaignId={campaignId}
                   scene={scene}
                   onInitiateCombat={onInitiateCombat}
                   isLoading={isLoading}

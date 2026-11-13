@@ -113,19 +113,21 @@ export const PlaythroughLobby = () => {
     setBusy(true);
     setError('');
     try {
-      // Nota: auth.admin requiere la service key; desde el navegador no funciona.
-      // Pendiente: reemplazar por una función de servidor segura.
-      const { data: userData, error: listErr } = await supabase.auth.admin.listUsers();
-      if (listErr || !userData) {
+      // Función de base de datos (sql/007): solo el director puede usarla y devuelve el id, no el email.
+      const { data: invitedId, error: lookupErr } = await supabase.rpc('find_user_id_by_email', {
+        p_playthrough_id: playthroughId,
+        p_email: email,
+      });
+      if (lookupErr) {
         throw new Error(
-          'Invitar por email necesita una función del servidor. Todavía no está disponible desde acá.'
+          lookupErr.message.includes('Solo el director')
+            ? 'Solo el director de la partida puede invitar jugadores.'
+            : 'No pudimos buscar el usuario. Revisá que la función esté instalada (sql/007).'
         );
       }
+      if (!invitedId) throw new Error('No hay ningún usuario registrado con ese email.');
 
-      const invitedUser = userData.users.find((u) => u.email?.toLowerCase() === email);
-      if (!invitedUser) throw new Error('Usuario no encontrado');
-
-      if (participants.some((p) => p.user_id === invitedUser.id)) {
+      if (participants.some((p) => p.user_id === invitedId)) {
         throw new Error('Este jugador ya está invitado');
       }
 
@@ -133,7 +135,7 @@ export const PlaythroughLobby = () => {
         .from('playthrough_participants')
         .insert({
           playthrough_id: playthroughId,
-          user_id: invitedUser.id,
+          user_id: invitedId,
           role: 'player',
           confirmed: false,
         })

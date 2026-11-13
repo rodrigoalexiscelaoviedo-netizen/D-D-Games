@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { cerrarCombate, cancelarCombate, resolverCombateSinCombate } from '../../lib/combat-return';
+import { abilityMod, rollInitiative } from '../../lib/combat-engine';
 import type { Playthrough, Scene, SceneOption } from '../../lib/adventure-types';
 import { toPlayerScene, toPlayerOption } from '../../lib/adventure-types';
 import { ScenePlayerView } from './ScenePlayerView';
@@ -331,31 +332,39 @@ export const PlaythroughScreen = () => {
         throw new Error('UPDATE no afectó ninguna fila — verificar sesión o RLS');
       }
 
-      const { data: logRows, error: logError } = await supabase
-        .from('playthrough_log')
-        .insert({
-          playthrough_id: playthroughId,
-          scene_id: scene.id,
-          entry_type: 'decision',
-          content: {
-            option_id: optionId,
-            option_label: selectedOption.player_label,
-            sets_flag: selectedOption.sets_flag,
-            leads_to_scene_id: selectedOption.leads_to_scene_id,
-          },
-        })
-        .select();
+      // El registro y la escena siguiente (con sus opciones) no dependen entre sí: van en paralelo.
+      const nextSceneId = selectedOption.leads_to_scene_id;
+      const [logResult, sceneResult, optionsResult] = await Promise.all([
+        supabase
+          .from('playthrough_log')
+          .insert({
+            playthrough_id: playthroughId,
+            scene_id: scene.id,
+            entry_type: 'decision',
+            content: {
+              option_id: optionId,
+              option_label: selectedOption.player_label,
+              sets_flag: selectedOption.sets_flag,
+              leads_to_scene_id: nextSceneId,
+            },
+          })
+          .select(),
+        supabase.from('scenes').select('*').eq('id', nextSceneId).single(),
+        supabase
+          .from('scene_options')
+          .select('*')
+          .eq('scene_id', nextSceneId)
+          .order('option_order', { ascending: true }),
+      ]);
 
+      const { data: logRows, error: logError } = logResult;
       if (logError) throw logError;
       if (!logRows || logRows.length === 0) {
         throw new Error('INSERT a playthrough_log no afectó filas');
       }
 
-      const { data: nextScene } = await supabase
-        .from('scenes')
-        .select('*')
-        .eq('id', selectedOption.leads_to_scene_id)
-        .single();
+      const nextScene = sceneResult.data;
+      const nextOptions = optionsResult.data;
 
       if (nextScene) {
         setScene(nextScene);
@@ -374,12 +383,6 @@ export const PlaythroughScreen = () => {
         } catch (e) {
           console.warn('Audio not available:', e);
         }
-
-        const { data: nextOptions } = await supabase
-          .from('scene_options')
-          .select('*')
-          .eq('scene_id', nextScene.id)
-          .order('option_order', { ascending: true });
 
         setOptions(nextOptions || []);
         setOptionsLoaded(true);
@@ -453,6 +456,7 @@ export const PlaythroughScreen = () => {
           campaign_id: playthrough.campaign_id,
           playthrough_id: playthroughId,
           scene_id: scene.id,
+          round: 1,
         })
         .select()
         .single();
@@ -461,30 +465,43 @@ export const PlaythroughScreen = () => {
         throw new Error('No se pudo crear el combate');
       }
 
-      const participants = [
+      // Iniciativa (regla de 5e): d20 + DES para cada participante; juega primero quien saca más.
+      const entries = [
         ...Array.from({ length: count }).map((_, i) => ({
-          combat_id: combat.id,
-          character_id: null,
-          name: count > 1 ? `${enemy.name} ${i + 1}` : enemy.name,
-          is_player: false,
-          hp_current: enemy.hp,
-          hp_max: enemy.hp,
-          armor_class: enemy.armor_class,
-          dexterity: enemy.dexterity,
-          damage_dice: enemy.damage_dice,
-          attack_bonus: enemy.attack_bonus,
+          init: rollInitiative(enemy.dexterity ?? 10).total,
+          row: {
+            combat_id: combat.id,
+            character_id: null,
+            name: count > 1 ? `${enemy.name} ${i + 1}` : enemy.name,
+            is_player: false,
+            hp_current: enemy.hp,
+            hp_max: enemy.hp,
+            armor_class: enemy.armor_class,
+            dexterity: enemy.dexterity,
+            damage_dice: enemy.damage_dice,
+            attack_bonus: enemy.attack_bonus,
+          },
         })),
         ...characters.map((char) => ({
-          combat_id: combat.id,
-          character_id: char.id,
-          name: char.character_name,
-          is_player: true,
-          hp_current: char.hp_current,
-          hp_max: char.hp_max,
-          armor_class: char.armor_class,
-          dexterity: char.dex,
+          init: rollInitiative(char.dex ?? 10).total,
+          row: {
+            combat_id: combat.id,
+            character_id: char.id,
+            name: char.character_name,
+            is_player: true,
+            hp_current: char.hp_current,
+            hp_max: char.hp_max,
+            armor_class: char.armor_class,
+            dexterity: char.dex,
+            // Bono de ataque: modificador de FUE + bonificador de competencia.
+            attack_bonus: abilityMod(char.str) + (char.proficiency_bonus ?? 2),
+          },
         })),
       ];
+      const participants = entries
+        .map((e) => ({ ...e, tie: Math.random() }))
+        .sort((a, b) => b.init - a.init || b.tie - a.tie)
+        .map((e, i) => ({ ...e.row, turn_order: i }));
 
       const { data: participantsData, error: participantsError } = await supabase
         .from('combat_participants')
@@ -811,6 +828,7 @@ export const PlaythroughScreen = () => {
         />
       ) : (
         <SceneDMView
+          campaignId={playthrough.campaign_id}
           scene={scene}
           options={visibleOptions}
           hiddenOptions={hiddenOptions}

@@ -1,7 +1,8 @@
 // Estadísticas basadas en el System Reference Document 5.1 de Wizards of the Coast,
 // licenciado bajo Creative Commons Attribution 4.0 (CC-BY-4.0).
 // Simplificadas al formato de combat-engine: un ataque, un dado de daño.
-// El CR se guarda redondeado hacia abajo (la columna es entera); el XP es el real.
+// El CR es el real, con fracciones (1/8 = 0.125). La columna del bestiario es numérica desde sql/008.
+// El XP es el de la ficha oficial.
 
 import type { ModuleMonster } from './types';
 
@@ -9,14 +10,14 @@ export const MONSTERS = {
   kobold: {
     name: 'Kobold',
     hp: 5, armor_class: 12, dexterity: 15, damage_dice: 4, attack_bonus: 4,
-    xp_value: 25, challenge_rating: 0,
+    xp_value: 25, challenge_rating: 0.125,
     description: 'Reptil pequeño y astuto. Ataca en grupo; ventaja si un aliado está adyacente al objetivo. Sensibilidad a la luz del sol.',
     portrait_seed: 'kobold',
   },
   rataGigante: {
     name: 'Rata gigante',
     hp: 7, armor_class: 12, dexterity: 15, damage_dice: 4, attack_bonus: 4,
-    xp_value: 25, challenge_rating: 0,
+    xp_value: 25, challenge_rating: 0.125,
     description: 'Rata del tamaño de un perro. Táctica de manada: ventaja si un aliado está adyacente al objetivo.',
     portrait_seed: 'rata-gigante',
   },
@@ -30,14 +31,14 @@ export const MONSTERS = {
   lobo: {
     name: 'Lobo',
     hp: 11, armor_class: 13, dexterity: 15, damage_dice: 8, attack_bonus: 4,
-    xp_value: 50, challenge_rating: 0,
+    xp_value: 50, challenge_rating: 0.25,
     description: 'Depredador de manada. Al morder, salvación de FUE CD 11 o derribado. Táctica de manada.',
     portrait_seed: 'lobo',
   },
   bandido: {
     name: 'Bandido',
     hp: 11, armor_class: 12, dexterity: 12, damage_dice: 6, attack_bonus: 3,
-    xp_value: 25, challenge_rating: 0,
+    xp_value: 25, challenge_rating: 0.125,
     description: 'Salteador de caminos con cimitarra y ballesta ligera.',
     portrait_seed: 'bandido',
   },
@@ -58,7 +59,7 @@ export const MONSTERS = {
   esqueleto: {
     name: 'Esqueleto',
     hp: 13, armor_class: 13, dexterity: 14, damage_dice: 6, attack_bonus: 4,
-    xp_value: 50, challenge_rating: 0,
+    xp_value: 50, challenge_rating: 0.25,
     description: 'Huesos animados con espada corta y arco corto. Vulnerable al daño contundente.',
     portrait_seed: 'esqueleto',
   },

@@ -25,14 +25,15 @@ export const AdminDashboard = () => {
     loadStats();
   }, []);
 
+  // Solo entra quien está en la tabla app_admins (sql/006_app_admins.sql).
+  // Si la función no existe o falla, se deniega el acceso.
   const checkAdmin = async () => {
     try {
-      const { data: user } = await supabase.auth.getUser();
-      // TODO: esto no es un control de acceso real. Cualquier usuario con sesión entra.
-      // Falta una lista de administradores (por ejemplo, una tabla con RLS).
-      setIsAdmin(!!user);
-      setLoading(false);
+      const { data, error } = await supabase.rpc('is_app_admin');
+      setIsAdmin(!error && data === true);
     } catch {
+      setIsAdmin(false);
+    } finally {
       setLoading(false);
     }
   };
