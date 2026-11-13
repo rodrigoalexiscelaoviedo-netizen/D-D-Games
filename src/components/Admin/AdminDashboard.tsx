@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { generateBulkAdventures, getGeneratedAdventures } from '../../lib/adventure-bulk-generator';
+import './admin-dashboard.css';
 
 interface GenerationProgress {
   current: number;
@@ -17,6 +18,7 @@ export const AdminDashboard = () => {
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
   const [adventures, setAdventures] = useState<any[]>([]);
   const [creatures, setCreatures] = useState<number>(0);
+  const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     checkAdmin();
@@ -26,11 +28,11 @@ export const AdminDashboard = () => {
   const checkAdmin = async () => {
     try {
       const { data: user } = await supabase.auth.getUser();
-      // In a real app, check against admin list
-      // For now, allow all authenticated users
+      // TODO: esto no es un control de acceso real. Cualquier usuario con sesión entra.
+      // Falta una lista de administradores (por ejemplo, una tabla con RLS).
       setIsAdmin(!!user);
       setLoading(false);
-    } catch (error) {
+    } catch {
       setLoading(false);
     }
   };
@@ -46,334 +48,151 @@ export const AdminDashboard = () => {
       setCreatures(creatureCount || 0);
     } catch (error) {
       console.error('Error loading stats:', error);
+      setNotice({ kind: 'error', text: 'No pudimos cargar los números. Probá recargar la página.' });
     }
   };
 
   const handleGenerateAdventures = async () => {
-    if (!window.confirm('Generar 10+ aventuras con Gemini? (puede tomar 5-10 minutos)')) return;
+    if (!window.confirm('¿Generar 10 aventuras nuevas con Gemini? Puede tardar entre 5 y 10 minutos.')) return;
 
     setGenerating(true);
+    setNotice(null);
     try {
       const result = await generateBulkAdventures((current, total, name) => {
         setProgress({ current, total, name });
       });
 
-      alert(
-        `Generación completada:\n✓ ${result.success} aventuras\n✗ ${result.failed} fallidas${
-          result.errors.length > 0 ? `\n\nErrores:\n${result.errors.slice(0, 3).join('\n')}` : ''
-        }`
-      );
+      const errors = result.errors.length > 0 ? ` Primeros errores: ${result.errors.slice(0, 3).join(' · ')}` : '';
+      setNotice({
+        kind: result.failed > 0 ? 'error' : 'ok',
+        text: `Terminó la generación: ${result.success} aventuras creadas y ${result.failed} con error.${errors}`,
+      });
 
       setProgress(null);
       loadStats();
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Error: ${msg}`);
+      const msg = error instanceof Error ? error.message : 'Error desconocido';
+      setNotice({ kind: 'error', text: `No se pudo generar. ${msg}` });
     } finally {
       setGenerating(false);
     }
   };
 
   const handleClearAdventures = async () => {
-    if (!window.confirm('¿Borrar TODAS las aventuras? No se puede deshacer.')) return;
+    if (!window.confirm('¿Borrar las aventuras? Esto no se puede deshacer.')) return;
 
     try {
       await supabase.from('scenes').delete().neq('id', 'null');
       await supabase.from('adventures').delete().neq('id', 'null');
-      alert('Aventuras eliminadas');
+      setNotice({ kind: 'ok', text: 'Listo: las aventuras que podías borrar ya no están.' });
       loadStats();
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Error: ${msg}`);
+      const msg = error instanceof Error ? error.message : 'Error desconocido';
+      setNotice({ kind: 'error', text: `No se pudieron borrar. ${msg}` });
     }
   };
 
-  if (loading) return <div className="page-pad">Verificando permisos...</div>;
+  if (loading) return <div className="ad-state" role="status"><p>Revisando tu acceso…</p></div>;
 
   if (!isAdmin) {
     return (
-      <div className="page-pad">
-        <p>No tienes acceso a este panel.</p>
-        <button onClick={() => navigate('/dashboard')} className="btn-secondary">
-          Volver
+      <div className="ad-state">
+        <p>No tenés acceso a este panel.</p>
+        <button className="ad-btn ad-btn-ghost" onClick={() => navigate('/dashboard')}>
+          Volver al inicio
         </button>
       </div>
     );
   }
 
+  const pct = progress ? Math.round((progress.current / progress.total) * 100) : 0;
+
   return (
-    <div className="admin-dashboard page-pad">
-      <header className="admin-header">
-        <button onClick={() => navigate('/dashboard')} className="btn-secondary">
-          ← Dashboard
-        </button>
-        <h1>⚙️ Panel Administrativo</h1>
+    <div className="ad">
+      <header className="ad-top">
+        <button className="ad-back" onClick={() => navigate('/dashboard')}>← Volver al inicio</button>
+        <p className="ad-eyebrow">Herramientas internas</p>
+        <h1>Panel de administración</h1>
+        <p className="ad-lede">Desde acá generás aventuras nuevas y mirás cuántos datos hay cargados.</p>
       </header>
 
-      <div className="admin-stats">
-        <div className="stat-card">
-          <div className="stat-label">Aventuras</div>
-          <div className="stat-value">{adventures.length}</div>
-          <div className="stat-detail">Generadas con Gemini</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Criaturas</div>
-          <div className="stat-value">{creatures}</div>
-          <div className="stat-detail">Importadas de Open5e</div>
-        </div>
-      </div>
+      <main className="ad-main">
+        {notice && (
+          <div className={`ad-notice ad-notice-${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>
+            <p>{notice.text}</p>
+            <button className="ad-btn ad-btn-ghost" onClick={() => setNotice(null)}>Entendido</button>
+          </div>
+        )}
 
-      <div className="admin-actions">
-        <section className="admin-section">
-          <h2>Generación de Aventuras</h2>
-          <p className="section-hint">
-            Genera 10 aventuras completas usando Gemini AI. Cada una con múltiples escenas,
-            encuentros y opciones de juego.
+        <section className="ad-stats" aria-label="Números">
+          <div className="ad-stat">
+            <span className="ad-stat-label">Aventuras</span>
+            <span className="ad-stat-value">{adventures.length}</span>
+            <span className="ad-stat-hint">Generadas con Gemini</span>
+          </div>
+          <div className="ad-stat">
+            <span className="ad-stat-label">Criaturas</span>
+            <span className="ad-stat-value">{creatures}</span>
+            <span className="ad-stat-hint">Importadas de Open5e</span>
+          </div>
+        </section>
+
+        <section className="ad-card" aria-labelledby="ad-gen-title">
+          <h2 id="ad-gen-title">Crear aventuras nuevas</h2>
+          <p className="ad-hint">
+            Crea 10 aventuras completas con Gemini. Cada una tiene varias escenas, encuentros y decisiones para el grupo.
           </p>
 
           {!generating && !progress && (
-            <div>
-              <button className="btn-primary btn-large" onClick={handleGenerateAdventures}>
-                🚀 Generar 10+ Aventuras
+            <div className="ad-row">
+              <button className="ad-btn ad-btn-primary" onClick={handleGenerateAdventures}>
+                Generar 10 aventuras
               </button>
-              <p className="action-hint">Tiempo estimado: 5-10 minutos</p>
+              <span className="ad-hint">Tarda entre 5 y 10 minutos.</span>
             </div>
           )}
 
           {progress && (
-            <div className="generation-progress">
-              <div className="progress-bar">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                ></div>
+            <div className="ad-progress" role="status">
+              <div className="ad-bar" aria-hidden="true">
+                <div className="ad-bar-fill" style={{ width: `${pct}%` }} />
               </div>
-              <p className="progress-text">
-                {progress.current}/{progress.total}: <strong>{progress.name}</strong>
+              <p>
+                Aventura {progress.current} de {progress.total}: <strong>{progress.name}</strong>
               </p>
             </div>
           )}
         </section>
 
-        <section className="admin-section">
-          <h2>Aventuras Generadas</h2>
+        <section className="ad-card" aria-labelledby="ad-list-title">
+          <h2 id="ad-list-title">Aventuras generadas</h2>
           {adventures.length === 0 ? (
-            <p className="empty-hint">No hay aventuras aún. Genera algunas para empezar.</p>
+            <p className="ad-empty">Todavía no hay aventuras generadas. Creá algunas arriba.</p>
           ) : (
-            <div className="adventures-list">
+            <ul className="ad-list">
               {adventures.map((adv) => (
-                <div key={adv.id} className="adventure-item">
-                  <div className="adventure-info">
-                    <h4>{adv.title}</h4>
-                    <p className="adventure-meta">
-                      Nivel {adv.suggested_level} • {adv.scene_count} escenas • {adv.duration}
-                    </p>
-                    {adv.synopsis && <p className="adventure-synopsis">{adv.synopsis}</p>}
-                  </div>
-                  <div className="adventure-actions">
-                    <button
-                      className="btn-secondary btn-small"
-                      onClick={() => navigate(`/campaign/1/adventures`)}
-                    >
-                      Ver
-                    </button>
-                  </div>
-                </div>
+                <li key={adv.id} className="ad-item">
+                  <h3>{adv.title}</h3>
+                  <p className="ad-meta">
+                    Nivel {adv.suggested_level} · {adv.scene_count} escenas · {adv.duration}
+                  </p>
+                  {adv.synopsis && <p className="ad-synopsis">{adv.synopsis}</p>}
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </section>
 
-        <section className="admin-section danger">
-          <h2>Acciones Peligrosas</h2>
-          <p className="section-hint">Estas acciones no se pueden deshacer.</p>
-          <button className="btn-danger" onClick={handleClearAdventures}>
-            🗑️ Borrar todas las aventuras
+        <section className="ad-card ad-danger" aria-labelledby="ad-danger-title">
+          <h2 id="ad-danger-title">Zona de peligro</h2>
+          <p className="ad-hint">
+            Esto borra las aventuras que tenés permiso de borrar. No se puede deshacer.
+          </p>
+          <button className="ad-btn ad-btn-danger" onClick={handleClearAdventures}>
+            Borrar aventuras
           </button>
         </section>
-      </div>
-
-      <style>{`
-        .admin-dashboard {
-          max-width: 1000px;
-        }
-
-        .admin-header {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          margin-bottom: 32px;
-        }
-
-        .admin-header h1 {
-          margin: 0;
-          flex: 1;
-        }
-
-        .admin-stats {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 16px;
-          margin-bottom: 32px;
-        }
-
-        .stat-card {
-          background: #1a1a1a;
-          border: 1px solid #333;
-          border-radius: 8px;
-          padding: 20px;
-          text-align: center;
-        }
-
-        .stat-label {
-          font-size: 12px;
-          color: #999;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin-bottom: 8px;
-        }
-
-        .stat-value {
-          font-size: 32px;
-          font-weight: 700;
-          color: #a855f7;
-          margin-bottom: 8px;
-        }
-
-        .stat-detail {
-          font-size: 12px;
-          color: #666;
-        }
-
-        .admin-actions {
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-        }
-
-        .admin-section {
-          background: #0d0d0d;
-          border: 1px solid #333;
-          border-radius: 8px;
-          padding: 20px;
-        }
-
-        .admin-section.danger {
-          border-color: #a64d4d;
-          background: rgba(166, 77, 77, 0.05);
-        }
-
-        .admin-section h2 {
-          margin: 0 0 12px 0;
-          font-size: 18px;
-        }
-
-        .section-hint {
-          margin: 0 0 16px 0;
-          font-size: 14px;
-          color: #999;
-        }
-
-        .action-hint {
-          margin-top: 8px;
-          font-size: 12px;
-          color: #666;
-        }
-
-        .generation-progress {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .progress-bar {
-          width: 100%;
-          height: 24px;
-          background: #1a1a1a;
-          border-radius: 4px;
-          overflow: hidden;
-          border: 1px solid #333;
-        }
-
-        .progress-fill {
-          height: 100%;
-          background: linear-gradient(90deg, #a855f7, #a855f7);
-          transition: width 0.3s ease;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 11px;
-          color: white;
-          font-weight: 600;
-        }
-
-        .progress-text {
-          margin: 0;
-          font-size: 14px;
-          color: #ccc;
-        }
-
-        .progress-text strong {
-          color: #a855f7;
-        }
-
-        .adventures-list {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .adventure-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 12px;
-          background: #1a1a1a;
-          border: 1px solid #333;
-          border-radius: 6px;
-          gap: 16px;
-        }
-
-        .adventure-info {
-          flex: 1;
-        }
-
-        .adventure-info h4 {
-          margin: 0 0 4px 0;
-          font-size: 16px;
-          color: #fff;
-        }
-
-        .adventure-meta {
-          margin: 0 0 8px 0;
-          font-size: 12px;
-          color: #999;
-        }
-
-        .adventure-synopsis {
-          margin: 0;
-          font-size: 13px;
-          color: #ccc;
-          line-height: 1.4;
-        }
-
-        .adventure-actions {
-          display: flex;
-          gap: 8px;
-        }
-
-        .btn-large {
-          padding: 12px 24px;
-          font-size: 16px;
-          font-weight: 600;
-        }
-
-        .empty-hint {
-          color: #666;
-          font-size: 14px;
-          margin: 0;
-        }
-      `}</style>
+      </main>
     </div>
   );
 };
