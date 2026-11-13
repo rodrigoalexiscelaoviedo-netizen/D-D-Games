@@ -110,7 +110,7 @@ export const DMVisuals = ({ module, scene, flags, onToggleFlag }: Props) => {
             <div className="visual-block-actions">
               <label className="toggle-inline">
                 <input type="checkbox" checked={showMarkers} onChange={(e) => setShowMarkers(e.target.checked)} />
-                Marcadores DM
+                Mostrar notas del DM en el mapa
               </label>
               <button
                 className={mapShared ? 'btn-secondary btn-small' : 'btn-primary btn-small'}
@@ -131,7 +131,7 @@ export const DMVisuals = ({ module, scene, flags, onToggleFlag }: Props) => {
           </div>
           {hiddenAreas.length > 0 && (
             <div className="fog-controls">
-              <span>Niebla de guerra:</span>
+              <span>Zonas ocultas (tocá una para revelarla a los jugadores):</span>
               {hiddenAreas.map((a) => {
                 const on = revealedAreas.has(a.id);
                 return (
@@ -239,11 +239,11 @@ const SkillCheckCard = ({ check }: { check: SkillCheck }) => {
     <div className={`check-card ${success === true ? 'check-ok' : success === false ? 'check-fail' : ''}`}>
       <div className="check-head">
         <strong>{check.skill}</strong>
-        <span className="check-dc">CD {check.dc}</span>
+        <span className="check-dc">Dificultad {check.dc}</span>
       </div>
       <div className="check-controls">
         <label>
-          Mod.
+          Bonificador
           <input type="number" value={mod} onChange={(e) => setMod(Number(e.target.value) || 0)} min={-5} max={15} />
         </label>
         <select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>

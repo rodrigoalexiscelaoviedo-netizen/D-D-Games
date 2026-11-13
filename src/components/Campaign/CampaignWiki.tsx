@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import './campaign-wiki.css';
+
+type Tab = 'lore' | 'inventory' | 'notes';
+
+const TAB_INFO: Record<Tab, { title: string; hint: string }> = {
+  lore: { title: 'Personajes y lore', hint: 'Lo que el grupo sabe de la gente y la historia del mundo.' },
+  inventory: { title: 'Objetos del grupo', hint: 'Lo que el grupo tiene en común: cofres, botines y objetos mágicos.' },
+  notes: { title: 'Notas', hint: 'Apuntes libres de la campaña.' },
+};
 
 export const CampaignWiki = () => {
   const { campaignId } = useParams();
@@ -8,25 +17,16 @@ export const CampaignWiki = () => {
   const [lore, setLore] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
-  const [tab, setTab] = useState<'npcs' | 'inventory' | 'notes'>('npcs');
+  const [tab, setTab] = useState<Tab>('lore');
   const [newNpc, setNewNpc] = useState({ name: '', description: '', type: 'npc' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     (async () => {
-      const { data: loreData } = await supabase
-        .from('campaign_lore')
-        .select('*')
-        .eq('campaign_id', campaignId);
-
-      const { data: invData } = await supabase
-        .from('campaign_inventory')
-        .select('*')
-        .eq('campaign_id', campaignId);
-
-      const { data: noteData } = await supabase
-        .from('campaign_notes')
-        .select('*')
-        .eq('campaign_id', campaignId);
+      const { data: loreData } = await supabase.from('campaign_lore').select('*').eq('campaign_id', campaignId);
+      const { data: invData } = await supabase.from('campaign_inventory').select('*').eq('campaign_id', campaignId);
+      const { data: noteData } = await supabase.from('campaign_notes').select('*').eq('campaign_id', campaignId);
 
       setLore(loreData || []);
       setInventory(invData || []);
@@ -35,109 +35,129 @@ export const CampaignWiki = () => {
   }, [campaignId]);
 
   const addNpc = async () => {
-    if (!newNpc.name.trim()) return;
-    await supabase.from('campaign_lore').insert({
-      campaign_id: campaignId,
-      ...newNpc,
-    });
-    setNewNpc({ name: '', description: '', type: 'npc' });
-    const { data } = await supabase.from('campaign_lore').select('*').eq('campaign_id', campaignId);
-    setLore(data || []);
+    if (!newNpc.name.trim()) {
+      setError('Ponele un nombre antes de guardar.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const { error: insertError } = await supabase.from('campaign_lore').insert({
+        campaign_id: campaignId,
+        ...newNpc,
+        name: newNpc.name.trim(),
+      });
+      if (insertError) throw insertError;
+
+      setNewNpc({ name: '', description: '', type: 'npc' });
+      const { data } = await supabase.from('campaign_lore').select('*').eq('campaign_id', campaignId);
+      setLore(data || []);
+    } catch (err) {
+      setError(`No se pudo guardar. ${err instanceof Error ? err.message : 'Probá de nuevo.'}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div className="wiki-container">
-      <header className="wiki-header">
-        <button onClick={() => navigate(`/campaign/${campaignId}`)} className="btn-secondary">
-          ← Campaña
+    <div className="cw">
+      <header className="cw-top">
+        <button className="cw-back" onClick={() => navigate(`/campaign/${campaignId}`)}>
+          ← Volver a la campaña
         </button>
-        <h1>📖 Wiki de Campaña</h1>
+        <p className="cw-eyebrow">Notas de la campaña</p>
+        <h1>Lo que tu mesa sabe</h1>
       </header>
 
-      <div className="wiki-tabs">
-        <button
-          className={`tab ${tab === 'npcs' ? 'active' : ''}`}
-          onClick={() => setTab('npcs')}
-        >
-          👥 NPCs & Lore
-        </button>
-        <button
-          className={`tab ${tab === 'inventory' ? 'active' : ''}`}
-          onClick={() => setTab('inventory')}
-        >
-          🎁 Inventario
-        </button>
-        <button
-          className={`tab ${tab === 'notes' ? 'active' : ''}`}
-          onClick={() => setTab('notes')}
-        >
-          📝 Notas
-        </button>
-      </div>
+      <nav className="cw-tabs" aria-label="Secciones de notas">
+        {(Object.keys(TAB_INFO) as Tab[]).map((key) => (
+          <button
+            key={key}
+            className={`cw-tab ${tab === key ? 'is-active' : ''}`}
+            aria-pressed={tab === key}
+            onClick={() => setTab(key)}
+          >
+            <span className="cw-tab-title">{TAB_INFO[key].title}</span>
+            <span className="cw-tab-hint">{TAB_INFO[key].hint}</span>
+          </button>
+        ))}
+      </nav>
 
-      <div className="wiki-content">
-        {tab === 'npcs' && (
+      <div className="cw-content">
+        {tab === 'lore' && (
           <>
-            <div className="add-form">
-              <input
-                type="text"
-                placeholder="Nombre del NPC"
-                value={newNpc.name}
-                onChange={(e) => setNewNpc({ ...newNpc, name: e.target.value })}
-                className="input-field"
-              />
-              <textarea
-                placeholder="Descripción"
-                value={newNpc.description}
-                onChange={(e) => setNewNpc({ ...newNpc, description: e.target.value })}
-                className="input-field"
-                rows={3}
-              />
-              <button onClick={addNpc} className="btn-primary">
-                + Agregar NPC
+            <section className="cw-form" aria-labelledby="cw-add-lore">
+              <h2 id="cw-add-lore">Agregar un personaje o lugar</h2>
+              <label className="cw-field">
+                <span className="cw-label">Nombre</span>
+                <input
+                  className="cw-input"
+                  placeholder="Ej: Tobías, el campanero"
+                  value={newNpc.name}
+                  onChange={(e) => setNewNpc({ ...newNpc, name: e.target.value })}
+                />
+              </label>
+              <label className="cw-field">
+                <span className="cw-label">Qué sabe el grupo de esta persona o lugar</span>
+                <textarea
+                  className="cw-input cw-textarea"
+                  placeholder="Lo que ya descubrieron o lo que les contaron."
+                  value={newNpc.description}
+                  onChange={(e) => setNewNpc({ ...newNpc, description: e.target.value })}
+                  rows={3}
+                />
+              </label>
+              {error && <p className="cw-error" role="alert">{error}</p>}
+              <button className="cw-btn cw-btn-primary" onClick={addNpc} disabled={saving}>
+                {saving ? 'Guardando…' : 'Agregar a la wiki'}
               </button>
-            </div>
-            <div className="lore-list">
-              {lore.map((item) => (
-                <div key={item.id} className="lore-card">
-                  <h3>{item.name}</h3>
-                  <p>{item.description}</p>
-                  <span className="lore-type">{item.type}</span>
-                </div>
-              ))}
-            </div>
+            </section>
+
+            {lore.length === 0 ? (
+              <p className="cw-empty">Todavía no hay personajes ni lugares. Agregá el primero arriba.</p>
+            ) : (
+              <ul className="cw-cards">
+                {lore.map((item) => (
+                  <li key={item.id} className="cw-card">
+                    <h3>{item.name}</h3>
+                    <p>{item.description || 'Sin descripción todavía.'}</p>
+                    <span className="cw-tag">{item.type === 'npc' ? 'Personaje' : item.type}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </>
         )}
 
         {tab === 'inventory' && (
-          <div className="inventory-list">
-            {inventory.length === 0 ? (
-              <p style={{ color: 'var(--ink-muted)' }}>Sin objetos aún.</p>
-            ) : (
-              inventory.map((item) => (
-                <div key={item.id} className="inventory-item">
-                  <span className="item-name">{item.item_name}</span>
-                  <span className="item-qty">x{item.quantity}</span>
-                  <span className="item-rarity">{item.rarity}</span>
-                </div>
-              ))
-            )}
-          </div>
+          inventory.length === 0 ? (
+            <p className="cw-empty">Todavía no hay objetos compartidos por el grupo.</p>
+          ) : (
+            <ul className="cw-list">
+              {inventory.map((item) => (
+                <li key={item.id} className="cw-row">
+                  <span className="cw-row-name">{item.item_name}</span>
+                  <span className="cw-row-qty">×{item.quantity}</span>
+                  <span className="cw-tag">{item.rarity}</span>
+                </li>
+              ))}
+            </ul>
+          )
         )}
 
         {tab === 'notes' && (
-          <div className="notes-list">
-            {notes.length === 0 ? (
-              <p style={{ color: 'var(--ink-muted)' }}>Sin notas aún.</p>
-            ) : (
-              notes.map((note) => (
-                <div key={note.id} className="note-card">
+          notes.length === 0 ? (
+            <p className="cw-empty">Todavía no hay notas. Las notas se escriben desde la sesión.</p>
+          ) : (
+            <ul className="cw-cards">
+              {notes.map((note) => (
+                <li key={note.id} className="cw-card">
                   <h3>{note.title}</h3>
                   <p>{note.content}</p>
-                </div>
-              ))
-            )}
-          </div>
+                </li>
+              ))}
+            </ul>
+          )
         )}
       </div>
     </div>

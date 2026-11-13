@@ -1,115 +1,53 @@
 import { memo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { NPCGallery } from './NPCGallery';
 import { LocationGallery } from './LocationGallery';
+import './dm-tools.css';
 
 type Tab = 'npcs' | 'locations';
 
 export const DMToolsPage = memo(() => {
   const [activeTab, setActiveTab] = useState<Tab>('npcs');
+  const navigate = useNavigate();
+  const { campaignId } = useParams();
 
   return (
-    <div className="dm-tools-page">
-      <header className="dm-tools-header">
-        <h1>🛠️ DM Tools & Preparation</h1>
-        <p>Manage NPCs, locations, encounters, and campaign preparation</p>
+    <div className="dmt">
+      <header className="dmt-top">
+        <button className="dmt-back" onClick={() => navigate(`/campaign/${campaignId}`)}>
+          ← Volver a la campaña
+        </button>
+        <p className="dmt-eyebrow">Preparar la sesión</p>
+        <h1>Personajes y lugares de tu mundo</h1>
+        <p className="dmt-lede">
+          Acá guardás a los personajes secundarios (los que maneja el DM) y los lugares donde pasa la historia.
+          Preparar esto antes de cada sesión hace que sea más fácil improvisar durante el juego.
+        </p>
       </header>
 
-      <nav className="dm-tools-tabs">
+      <nav className="dmt-tabs" aria-label="Qué querés preparar">
         <button
-          className={`tab-btn ${activeTab === 'npcs' ? 'active' : ''}`}
+          className={`dmt-tab ${activeTab === 'npcs' ? 'is-active' : ''}`}
+          aria-pressed={activeTab === 'npcs'}
           onClick={() => setActiveTab('npcs')}
-          title="Manage NPCs and companions"
         >
-          👥 NPCs & Companions
+          <span className="dmt-tab-title">Personajes</span>
+          <span className="dmt-tab-hint">Aliados, enemigos y gente del pueblo</span>
         </button>
         <button
-          className={`tab-btn ${activeTab === 'locations' ? 'active' : ''}`}
+          className={`dmt-tab ${activeTab === 'locations' ? 'is-active' : ''}`}
+          aria-pressed={activeTab === 'locations'}
           onClick={() => setActiveTab('locations')}
-          title="Manage locations and places"
         >
-          📍 Locations & Places
+          <span className="dmt-tab-title">Lugares</span>
+          <span className="dmt-tab-hint">Ciudades, mazmorras y puntos de interés</span>
         </button>
       </nav>
 
-      <div className="dm-tools-content">
+      <div className="dmt-content">
         {activeTab === 'npcs' && <NPCGallery />}
         {activeTab === 'locations' && <LocationGallery />}
       </div>
-
-      <style>{`
-        .dm-tools-page {
-          min-height: 100vh;
-          background: #0d0d0d;
-        }
-
-        .dm-tools-header {
-          background: #1a1a1a;
-          border-bottom: 1px solid #333;
-          padding: 24px 32px;
-        }
-
-        .dm-tools-header h1 {
-          margin: 0 0 8px 0;
-          font-size: 32px;
-          color: #fff;
-        }
-
-        .dm-tools-header p {
-          margin: 0;
-          font-size: 14px;
-          color: #999;
-        }
-
-        .dm-tools-tabs {
-          display: flex;
-          gap: 12px;
-          padding: 16px 32px;
-          background: #1a1a1a;
-          border-bottom: 1px solid #333;
-          flex-wrap: wrap;
-        }
-
-        .tab-btn {
-          padding: 10px 16px;
-          background: #0d0d0d;
-          border: 1px solid #333;
-          border-radius: 6px;
-          color: #999;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 200ms;
-        }
-
-        .tab-btn:hover {
-          border-color: #666;
-          color: #ccc;
-        }
-
-        .tab-btn.active {
-          background: #a855f7;
-          border-color: #a855f7;
-          color: #fff;
-        }
-
-        .dm-tools-content {
-          padding: 0;
-        }
-
-        @media (max-width: 768px) {
-          .dm-tools-header {
-            padding: 16px;
-          }
-
-          .dm-tools-header h1 {
-            font-size: 24px;
-          }
-
-          .dm-tools-tabs {
-            padding: 12px 16px;
-          }
-        }
-      `}</style>
     </div>
   );
 });
