@@ -117,6 +117,11 @@
 .cs-row-name { display: inline-flex; align-items: center; gap: 10px; }
 .cs-row.is-down .cs-token { filter: grayscale(1); opacity: 0.6; }
 
+/* Botín */
+.cs-loot { padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--border-gold); background: rgba(201, 162, 75, 0.08); display: flex; flex-direction: column; gap: 6px; }
+.cs-loot h3 { margin: 0; font-family: var(--font-title); font-size: 16px; color: var(--gold-bright); font-weight: 400; }
+.cs-loot ul { margin: 0; padding-left: 20px; line-height: 1.6; color: var(--ink); }
+
 /* Muerte y caída */
 .cs-action-danger { border-color: rgba(156, 58, 74, 0.8); background: linear-gradient(160deg, rgba(156, 58, 74, 0.25), var(--bg-surface)); }
 .cs-action-danger .cs-action-title { color: #e8a0aa; }

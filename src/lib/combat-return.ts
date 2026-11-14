@@ -1,5 +1,19 @@
 import { supabase } from './supabase';
 import { abilityMod } from './combat-engine';
+import { findModuleScene } from '../content/modules';
+
+/**
+ * Botín que el módulo define para la escena. Se muestra al grupo para que lo reparta
+ * (no se guarda en la ficha: el reparto es narrativo, lo decide el DM).
+ */
+export async function treasureForScene(playthroughId: string, sceneId: string): Promise<string[]> {
+  const { data: pt } = await supabase.from('playthroughs').select('adventure_id').eq('id', playthroughId).single();
+  if (!pt?.adventure_id) return [];
+  const { data: adv } = await supabase.from('adventures').select('origin').eq('id', pt.adventure_id).single();
+  const { data: sc } = await supabase.from('scenes').select('scene_order').eq('id', sceneId).single();
+  if (!sc) return [];
+  return findModuleScene(adv?.origin, sc.scene_order)?.treasure ?? [];
+}
 
 // --- Después del combate: vida, experiencia y niveles (reglas de 5e) ---
 

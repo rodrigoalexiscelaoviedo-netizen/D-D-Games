@@ -12,6 +12,7 @@ interface Member {
   hp_current?: number | null;
   hp_max?: number | null;
   portrait_url?: string | null;
+  spell_slots?: Record<string, number> | null;
 }
 
 /** Estado del grupo para el DM: vida, nivel, experiencia y descansos. */
@@ -23,7 +24,7 @@ export const PartyPanel = ({ campaignId }: { campaignId: string }) => {
   const load = async () => {
     const { data } = await supabase
       .from('characters')
-      .select('id, character_name, character_class, race, level, xp, hp_current, hp_max, portrait_url')
+      .select('id, character_name, character_class, race, level, xp, hp_current, hp_max, portrait_url, spell_slots')
       .eq('campaign_id', campaignId)
       .order('character_name', { ascending: true });
     setParty((data ?? []) as Member[]);
@@ -44,8 +45,18 @@ export const PartyPanel = ({ campaignId }: { campaignId: string }) => {
       const max = m.hp_max ?? 0;
       const cur = Math.max(0, m.hp_current ?? max);
       const next = kind === 'long' ? max : Math.min(max, cur + Math.ceil((max - cur) / 2));
-      if (next === cur) continue;
-      const { error } = await supabase.from('characters').update({ hp_current: next }).eq('id', m.id);
+
+      // Descanso largo: también recupera los espacios de conjuro de nivel 1 (hasta su máximo guardado).
+      const slots = m.spell_slots ?? {};
+      const restoredSlots =
+        kind === 'long' && typeof slots['max1'] === 'number'
+          ? { ...slots, '1': slots['max1'] }
+          : null;
+
+      if (next === cur && !restoredSlots) continue;
+      const patch: Record<string, unknown> = { hp_current: next };
+      if (restoredSlots) patch.spell_slots = restoredSlots;
+      const { error } = await supabase.from('characters').update(patch).eq('id', m.id);
       if (error) failed = true;
     }
     await load();

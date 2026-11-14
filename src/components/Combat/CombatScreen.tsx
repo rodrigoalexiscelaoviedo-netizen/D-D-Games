@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { cerrarCombate, type Aftermath } from '../../lib/combat-return';
+import { cerrarCombate, treasureForScene, type Aftermath } from '../../lib/combat-return';
 import {
   resolveAttack, nextAliveIndex, isCombatOver, abilityMod, roll, skillCheck, getAbility,
   parseDying, canAct, targetOutcome, deathSave,
@@ -104,8 +104,11 @@ export const CombatScreen = () => {
   const [classMap, setClassMap] = useState<Record<string, string>>({});
   const [strMap, setStrMap] = useState<Record<string, number>>({});
   const [inventoryMap, setInventoryMap] = useState<Record<string, any[]>>({});
+  const [spellSlotsMap, setSpellSlotsMap] = useState<Record<string, Record<string, number>>>({});
+  // Clases que gastan espacios de conjuro al usar su habilidad (5e: lanzadores de conjuros).
+  const SPELLCASTERS = new Set(['Mago', 'Clérigo', 'Hechicero', 'Brujo', 'Bardo', 'Druida']);
   const [portraitMap, setPortraitMap] = useState<Record<string, string | null>>({});
-  const [aftermath, setAftermath] = useState<(Aftermath & { playthroughId: string }) | null>(null);
+  const [aftermath, setAftermath] = useState<(Aftermath & { playthroughId: string; treasure: string[] }) | null>(null);
   const [closing, setClosing] = useState(false);
   const [closeError, setCloseError] = useState('');
   const [animationQueue, setAnimationQueue] = useState<Array<{ id: string; type: 'attack' | 'damage' | 'heal' | 'miss'; value?: number; x: number; y: number }>>([]);
@@ -144,13 +147,16 @@ export const CombatScreen = () => {
     if (charIds.length > 0) {
       const { data: chars } = await supabase
         .from('characters')
-        .select('id, character_class, str, portrait_url, inventory')
+        .select('id, character_class, str, portrait_url, inventory, spell_slots')
         .in('id', charIds);
       const inv: Record<string, any[]> = {};
+      const slots: Record<string, Record<string, number>> = {};
       (chars || []).forEach((c) => {
         inv[c.id] = Array.isArray(c.inventory) ? c.inventory : [];
+        slots[c.id] = c.spell_slots ?? {};
       });
       setInventoryMap(inv);
+      setSpellSlotsMap(slots);
       const map: Record<string, string> = {};
       const strengths: Record<string, number> = {};
       const portraits: Record<string, string | null> = {};
@@ -295,6 +301,16 @@ export const CombatScreen = () => {
     const ability = getAbility(classMap[current.character_id]);
     setBusy(true);
     setPickingTarget(null);
+
+    // Lanzadores: gastan un espacio de nivel 1 si la ficha lo tiene cargado.
+    const slotsNow = spellSlotsMap[current.character_id] ?? {};
+    if (SPELLCASTERS.has(classMap[current.character_id]) && typeof slotsNow['1'] === 'number') {
+      // El máximo se guarda la primera vez que se gasta, para que el descanso largo lo restaure.
+      const max1 = typeof slotsNow['max1'] === 'number' ? slotsNow['max1'] : slotsNow['1'];
+      const next = { ...slotsNow, '1': Math.max(0, slotsNow['1'] - 1), max1 };
+      await supabase.from('characters').update({ spell_slots: next }).eq('id', current.character_id);
+      setSpellSlotsMap((m) => ({ ...m, [current.character_id]: next }));
+    }
 
     if (ability.kind === 'heal') {
       const healed = roll(ability.healDice ?? 8) + 2;
@@ -505,7 +521,8 @@ export const CombatScreen = () => {
     try {
       if (combat.playthrough_id && combat.scene_id) {
         const res = await cerrarCombate(combat.playthrough_id, combat.scene_id, resultado, combatId);
-        setAftermath({ ...res.aftermath, playthroughId: combat.playthrough_id });
+        const treasure = resultado === 'victory' ? await treasureForScene(combat.playthrough_id, combat.scene_id) : [];
+        setAftermath({ ...res.aftermath, playthroughId: combat.playthrough_id, treasure });
       } else {
         await supabase
           .from('combats')
@@ -617,6 +634,17 @@ export const CombatScreen = () => {
                 </p>
               ) : (
                 <p>El grupo cae ante sus enemigos. La historia sigue por otro camino.</p>
+              )}
+              {aftermath.resultado === 'victory' && aftermath.treasure.length > 0 && (
+                <div className="cs-loot">
+                  <h3>Botín de la escena</h3>
+                  <p className="cs-hint">Repártanlo como quieran. Lo anotamos acá para que no se olvide.</p>
+                  <ul>
+                    {aftermath.treasure.map((t) => (
+                      <li key={t}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
               {aftermath.levelUps.length > 0 && (
                 <ul className="cs-levelups">
@@ -735,6 +763,9 @@ export const CombatScreen = () => {
             (() => {
               const ability = getAbility(classMap[current?.character_id]);
               const abilitySpent = current?.ability_used;
+              const noSpellSlots =
+                SPELLCASTERS.has(classMap[current?.character_id]) &&
+                spellSlotsMap[current?.character_id]?.['1'] === 0;
               return (
                 <>
                   <button
@@ -755,7 +786,7 @@ export const CombatScreen = () => {
 
                   <button
                     className="cs-action"
-                    disabled={busy || abilitySpent}
+                    disabled={busy || abilitySpent || noSpellSlots}
                     onClick={() => {
                       if (ability.kind !== 'attack') return doAbility();
                       return aliveEnemies.length === 1 ? doAbility(aliveEnemies[0]) : setPickingTarget('ability');
@@ -763,7 +794,11 @@ export const CombatScreen = () => {
                   >
                     <span className="cs-action-title">{ability.name}</span>
                     <span className="cs-action-sub">
-                      {abilitySpent ? 'Ya la usaste en este combate.' : `Regla casera: ${ability.description}`}
+                      {abilitySpent
+                        ? 'Ya la usaste en este combate.'
+                        : noSpellSlots
+                          ? 'Sin espacios de conjuro de nivel 1 para usarla.'
+                          : `Regla casera: ${ability.description}${SPELLCASTERS.has(classMap[current?.character_id]) && typeof spellSlotsMap[current?.character_id]?.['1'] === 'number' ? ` · gasta un espacio (quedan ${spellSlotsMap[current?.character_id]['1']})` : ''}`}
                     </span>
                   </button>
 
