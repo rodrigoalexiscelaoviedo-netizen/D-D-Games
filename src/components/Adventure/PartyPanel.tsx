@@ -79,10 +79,10 @@ export const PartyPanel = ({ campaignId }: { campaignId: string }) => {
         while (dice > 0 && hp < max) {
           const heal = Math.max(0, roll(die) + con);
           hp = Math.min(max, hp + heal);
-          healed += heal;
           dice -= 1;
           spent += 1;
         }
+        healed = hp - cur0; // lo que realmente se curó (no lo que tiraron los dados)
         if (spent === 0) {
           lines.push(`${m.character_name}: no necesita curarse o no le quedan dados.`);
           continue;
