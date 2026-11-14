@@ -1,361 +1,210 @@
 import { useState } from 'react';
-import { processLevelUp, getProficiencyBonus } from '../../lib/progression';
+import { supabase } from '../../lib/supabase';
+import { SUBCLASSES } from '../../content/subclasses';
+import {
+  ABILITY_LABEL,
+  applyAbilityIncreases,
+  needsSubclass,
+  type Ability,
+  type AbilityIncrease,
+} from '../../lib/level-up';
+import type { SpellEntry } from '../../lib/types';
+import { SpellPicker } from './SpellPicker';
 
-interface LevelUpPanelProps {
-  currentLevel: number;
-  currentHP: number;
-  maxHP: number;
-  constitution: number;
-  onLevelUp?: (newLevel: number, newMaxHP: number) => void;
-  onClose?: () => void;
+export interface LevelUpSheet {
+  id: string;
+  character_class: string | null;
+  level: number;
+  subclass: string | null;
+  pending_asi: number;
+  pending_spells: number;
+  scores: Record<Ability, number>;
+  spells: SpellEntry[];
 }
 
-export const LevelUpPanel = ({
-  currentLevel,
-  currentHP,
-  maxHP,
-  constitution,
-  onLevelUp,
-  onClose,
-}: LevelUpPanelProps) => {
-  const [confirmed, setConfirmed] = useState(false);
+const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 
-  const levelUp = processLevelUp(currentLevel, constitution);
-  const newProficiency = getProficiencyBonus(levelUp.new_level);
-  const oldProficiency = getProficiencyBonus(currentLevel);
-  const proficiencyIncrease = newProficiency > oldProficiency;
+interface AsiChoice {
+  /** 'one': +2 a una característica. 'two': +1 a dos características distintas. */
+  mode: 'one' | 'two';
+  a: Ability;
+  b: Ability;
+}
 
-  const handleConfirm = () => {
-    onLevelUp?.(levelUp.new_level, maxHP + levelUp.hp_gained);
-    setConfirmed(true);
+/**
+ * Elecciones pendientes por subida de nivel: subclase, mejoras de característica y conjuros nuevos.
+ * Se muestra en la ficha del propio personaje. Si no hay nada pendiente, no muestra nada.
+ */
+export const LevelUpPanel = ({ sheet, onSaved }: { sheet: LevelUpSheet; onSaved: () => void }) => {
+  const needSub = needsSubclass(sheet.character_class, sheet.level, sheet.subclass);
+  const subSet = SUBCLASSES[sheet.character_class ?? ''];
+  const [subclass, setSubclass] = useState('');
+  const [asi, setAsi] = useState<AsiChoice[]>(() =>
+    Array.from({ length: sheet.pending_asi }, () => ({ mode: 'one' as const, a: 'str' as Ability, b: 'dex' as Ability })),
+  );
+  const [newSpells, setNewSpells] = useState<SpellEntry[]>([]);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  if (!needSub && sheet.pending_asi === 0 && sheet.pending_spells === 0) return null;
+
+  const updateAsi = (i: number, patch: Partial<AsiChoice>) =>
+    setAsi((list) => list.map((c, j) => (j === i ? { ...c, ...patch } : c)));
+
+  const save = async () => {
+    setError('');
+    if (needSub && !subclass) {
+      setError('Elegí la subclase antes de guardar.');
+      return;
+    }
+    if (sheet.pending_spells > 0 && newSpells.length !== sheet.pending_spells) {
+      setError(`Elegí exactamente ${sheet.pending_spells} conjuros nuevos (llevás ${newSpells.length}).`);
+      return;
+    }
+
+    let scores = sheet.scores;
+    if (sheet.pending_asi > 0) {
+      const increases: AbilityIncrease[] = asi.flatMap((c): AbilityIncrease[] =>
+        c.mode === 'one'
+          ? [{ ability: c.a, amount: 2 as const }]
+          : [
+              { ability: c.a, amount: 1 as const },
+              { ability: c.b, amount: 1 as const },
+            ],
+      );
+      const res = applyAbilityIncreases(sheet.scores, increases, sheet.pending_asi);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      scores = res.scores;
+    }
+
+    const patch: Record<string, unknown> = {
+      pending_asi: 0,
+      pending_spells: 0,
+      str: scores.str,
+      dex: scores.dex,
+      con: scores.con,
+      int: scores.int,
+      wis: scores.wis,
+      cha: scores.cha,
+    };
+    if (needSub) patch.subclass = subclass;
+    if (newSpells.length > 0) patch.spells = [...sheet.spells, ...newSpells];
+
+    setSaving(true);
+    const { error: err } = await supabase.from('characters').update(patch).eq('id', sheet.id);
+    setSaving(false);
+    if (err) {
+      setError('No se pudo guardar. Probá de nuevo.');
+      return;
+    }
+    onSaved();
   };
 
   return (
-    <div className="level-up-panel">
-      <div className="panel-overlay">
-        <div className="panel-content">
-          <div className="celebration">
-            <h1>🎉</h1>
-            <h2>Level Up!</h2>
-            <p className="level-text">
-              {currentLevel} → <span className="new-level">{levelUp.new_level}</span>
-            </p>
-          </div>
+    <section className="lu" aria-labelledby="lu-title">
+      <h3 id="lu-title">Subiste de nivel: elegí lo que te toca</h3>
+      <p className="ps-panel-note">
+        Lo que elijas se guarda en tu ficha. No se puede cambiar después salvo que el director lo permita.
+      </p>
 
-          <div className="stat-changes">
-            <div className="stat-row">
-              <label>Hit Points</label>
-              <div className="stat-change">
-                <span className="old">
-                  {currentHP}/{maxHP}
-                </span>
-                <span className="arrow">→</span>
-                <span className="new">
-                  {currentHP}/{maxHP + levelUp.hp_gained}
-                </span>
+      {needSub && subSet && (
+        <fieldset className="lu-block">
+          <legend>
+            {subSet.label}
+            <span className="lu-hint"> · Elegila ahora. Define qué poderes tiene tu {sheet.character_class?.toLowerCase()}.</span>
+          </legend>
+          {subSet.options.map((opt) => (
+            <label key={opt.name} className="lu-option">
+              <input
+                type="radio"
+                name="subclass"
+                checked={subclass === opt.name}
+                onChange={() => setSubclass(opt.name)}
+              />
+              <span>
+                <strong>{opt.name}</strong>
+                <span className="lu-hint"> — {opt.summary}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+
+      {sheet.pending_asi > 0 && (
+        <fieldset className="lu-block">
+          <legend>Mejoras de característica</legend>
+          <p className="lu-hint">
+            Cada mejora reparte 2 puntos. Podés sumar +2 a una característica, o +1 a dos. Ninguna puede pasar de 20.
+          </p>
+          {asi.map((choice, i) => (
+            <div key={i} className="lu-asi">
+              <p className="lu-asi-title">Mejora {i + 1} de {sheet.pending_asi}</p>
+              <div className="lu-row">
+                <label>
+                  <input
+                    type="radio"
+                    name={`asi-${i}`}
+                    checked={choice.mode === 'one'}
+                    onChange={() => updateAsi(i, { mode: 'one' })}
+                  />
+                  +2 a una
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name={`asi-${i}`}
+                    checked={choice.mode === 'two'}
+                    onChange={() => updateAsi(i, { mode: 'two' })}
+                  />
+                  +1 a dos
+                </label>
               </div>
-              <span className="gain">+{levelUp.hp_gained} HP</span>
+              <div className="lu-row">
+                <select className="cf-input" value={choice.a} onChange={(e) => updateAsi(i, { a: e.target.value as Ability })} aria-label={`Característica ${i + 1}`}>
+                  {ABILITIES.map((ab) => (
+                    <option key={ab} value={ab}>
+                      {ABILITY_LABEL[ab]} ({sheet.scores[ab]})
+                    </option>
+                  ))}
+                </select>
+                {choice.mode === 'two' && (
+                  <select className="cf-input" value={choice.b} onChange={(e) => updateAsi(i, { b: e.target.value as Ability })} aria-label={`Segunda característica ${i + 1}`}>
+                    {ABILITIES.map((ab) => (
+                      <option key={ab} value={ab}>
+                        {ABILITY_LABEL[ab]} ({sheet.scores[ab]})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
+          ))}
+        </fieldset>
+      )}
 
-            {proficiencyIncrease && (
-              <div className="stat-row">
-                <label>Proficiency Bonus</label>
-                <div className="stat-change">
-                  <span className="old">+{oldProficiency}</span>
-                  <span className="arrow">→</span>
-                  <span className="new">+{newProficiency}</span>
-                </div>
-              </div>
-            )}
+      {sheet.pending_spells > 0 && (
+        <fieldset className="lu-block">
+          <legend>Conjuros nuevos</legend>
+          <p className="lu-hint">Elegí {sheet.pending_spells} conjuros nuevos de tu clase y de tu nivel.</p>
+          <SpellPicker
+            characterClass={sheet.character_class ?? ''}
+            characterLevel={sheet.level}
+            selected={newSpells}
+            onChange={setNewSpells}
+            limit={sheet.pending_spells}
+            exclude={sheet.spells.map((s) => s.name)}
+            minLevel={1}
+          />
+        </fieldset>
+      )}
 
-            {levelUp.ability_score_increase && (
-              <div className="stat-row special">
-                <label>✨ Ability Score Improvement</label>
-                <p className="note">You can increase two ability scores by 1, or one by 2</p>
-              </div>
-            )}
-          </div>
-
-          {levelUp.new_features && levelUp.new_features.length > 0 && (
-            <div className="new-features">
-              <h3>New Features</h3>
-              <ul>
-                {levelUp.new_features.map((feature, idx) => (
-                  <li key={idx}>{feature}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div className="panel-actions">
-            <button className="btn-primary" onClick={handleConfirm}>
-              Accept Level Up
-            </button>
-            {onClose && (
-              <button className="btn-secondary" onClick={onClose}>
-                Close
-              </button>
-            )}
-          </div>
-
-          {confirmed && (
-            <div className="success-message">✓ Level up applied!</div>
-          )}
-        </div>
-      </div>
-
-      <style>{`
-        .level-up-panel {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .panel-overlay {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.8);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .panel-content {
-          background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
-          border: 2px solid #a855f7;
-          border-radius: 16px;
-          padding: 32px;
-          max-width: 500px;
-          width: 90%;
-          box-shadow: 0 0 40px rgba(168, 85, 247, 0.3),
-            0 0 80px rgba(168, 85, 247, 0.1);
-          animation: slideUp 0.5s ease-out;
-        }
-
-        @keyframes slideUp {
-          from {
-            transform: translateY(40px);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-
-        .celebration {
-          text-align: center;
-          margin-bottom: 32px;
-        }
-
-        .celebration h1 {
-          font-size: 64px;
-          margin: 0 0 16px 0;
-          animation: bounce 0.6s ease-in-out;
-        }
-
-        @keyframes bounce {
-          0%,
-          100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-20px);
-          }
-        }
-
-        .celebration h2 {
-          font-size: 32px;
-          margin: 0 0 8px 0;
-          color: #a855f7;
-          text-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
-        }
-
-        .level-text {
-          font-size: 18px;
-          color: #ccc;
-          margin: 0;
-        }
-
-        .new-level {
-          font-weight: 700;
-          color: #a855f7;
-          font-size: 24px;
-        }
-
-        .stat-changes {
-          background: rgba(0, 0, 0, 0.4);
-          border: 1px solid #333;
-          border-radius: 8px;
-          padding: 20px;
-          margin-bottom: 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .stat-row {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .stat-row label {
-          font-size: 12px;
-          color: #999;
-          text-transform: uppercase;
-          font-weight: 600;
-        }
-
-        .stat-change {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          font-size: 14px;
-        }
-
-        .old {
-          color: #999;
-        }
-
-        .arrow {
-          color: #a855f7;
-          font-weight: 700;
-        }
-
-        .new {
-          color: #4ade80;
-          font-weight: 700;
-        }
-
-        .gain {
-          font-size: 12px;
-          color: #4ade80;
-          font-weight: 600;
-        }
-
-        .stat-row.special {
-          background: rgba(168, 85, 247, 0.1);
-          padding: 12px;
-          border-radius: 6px;
-          border-left: 3px solid #a855f7;
-        }
-
-        .stat-row.special label {
-          color: #a855f7;
-        }
-
-        .note {
-          font-size: 12px;
-          color: #ccc;
-          margin: 0;
-        }
-
-        .new-features {
-          background: rgba(74, 222, 128, 0.05);
-          border: 1px solid rgba(74, 222, 128, 0.2);
-          border-radius: 8px;
-          padding: 16px;
-          margin-bottom: 20px;
-        }
-
-        .new-features h3 {
-          margin: 0 0 12px 0;
-          font-size: 14px;
-          color: #4ade80;
-          text-transform: uppercase;
-          font-weight: 700;
-        }
-
-        .new-features ul {
-          list-style: none;
-          padding: 0;
-          margin: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .new-features li {
-          font-size: 13px;
-          color: #ccc;
-          padding-left: 20px;
-          position: relative;
-        }
-
-        .new-features li:before {
-          content: '✓';
-          position: absolute;
-          left: 0;
-          color: #4ade80;
-          font-weight: 700;
-        }
-
-        .panel-actions {
-          display: flex;
-          gap: 12px;
-          flex-direction: column;
-        }
-
-        .btn-primary,
-        .btn-secondary {
-          padding: 12px 16px;
-          border: none;
-          border-radius: 6px;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .btn-primary {
-          background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
-          color: #fff;
-        }
-
-        .btn-primary:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 16px rgba(168, 85, 247, 0.3);
-        }
-
-        .btn-secondary {
-          background: transparent;
-          border: 1px solid #333;
-          color: #999;
-        }
-
-        .btn-secondary:hover {
-          border-color: #a855f7;
-          color: #a855f7;
-        }
-
-        .success-message {
-          text-align: center;
-          color: #4ade80;
-          font-weight: 600;
-          font-size: 14px;
-          margin-top: 12px;
-          animation: fadeIn 0.3s ease-in;
-        }
-
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-      `}</style>
-    </div>
+      {error && <p className="lu-error" role="alert">{error}</p>}
+      <button className="ps-btn ps-btn-primary" onClick={save} disabled={saving}>
+        {saving ? 'Guardando…' : 'Guardar elecciones'}
+      </button>
+    </section>
   );
 };

@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { xpForNextLevel } from '../../lib/combat-return';
+import type { SpellEntry } from '../../lib/types';
+import { LevelUpPanel } from '../Character/LevelUpPanel';
+import { SLOT_CASTER_CLASSES } from '../../lib/spell-catalog';
 
 interface Sheet {
   id: string;
@@ -23,10 +26,14 @@ interface Sheet {
   spell_slots: Record<string, number> | null;
   inventory: Array<{ name?: string }> | null;
   portrait_url: string | null;
+  subclass: string | null;
+  pending_asi: number | null;
+  pending_spells: number | null;
+  spells: SpellEntry[] | null;
 }
 
 // Clases que usan espacios de conjuro (igual que en el combate).
-const CASTERS = new Set(['Mago', 'Clérigo', 'Hechicero', 'Brujo', 'Bardo', 'Druida']);
+const CASTERS = SLOT_CASTER_CLASSES;
 
 const mod = (score: number | null) => (score == null ? '—' : `${Math.floor((score - 10) / 2) >= 0 ? '+' : ''}${Math.floor((score - 10) / 2)}`);
 
@@ -35,6 +42,7 @@ export const PlayerSheet = ({ playthroughId }: { playthroughId: string }) => {
   const { user } = useAuth();
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -52,7 +60,7 @@ export const PlayerSheet = ({ playthroughId }: { playthroughId: string }) => {
       const { data } = me?.character_id
         ? await supabase
             .from('characters')
-            .select('id, character_name, race, character_class, level, xp, hp_current, hp_max, armor_class, speed, str, dex, con, int, wis, cha, spell_slots, inventory, portrait_url')
+            .select('id, character_name, race, character_class, level, xp, hp_current, hp_max, armor_class, speed, str, dex, con, int, wis, cha, spell_slots, inventory, portrait_url, subclass, pending_asi, pending_spells, spells')
             .eq('id', me.character_id)
             .maybeSingle()
         : { data: null };
@@ -64,7 +72,7 @@ export const PlayerSheet = ({ playthroughId }: { playthroughId: string }) => {
     return () => {
       alive = false;
     };
-  }, [playthroughId, user?.id]);
+  }, [playthroughId, user?.id, reloadKey]);
 
   if (!loaded) return <p className="ps-panel-note">Cargando tu ficha…</p>;
   if (!sheet) {
@@ -97,10 +105,31 @@ export const PlayerSheet = ({ playthroughId }: { playthroughId: string }) => {
           <p className="ps-eyebrow">Tu personaje</p>
           <h2 id="ps-sheet-title">{sheet.character_name}</h2>
           <p className="ps-panel-note">
-            {[sheet.race, sheet.character_class, `nivel ${level}`].filter(Boolean).join(' · ')}
+            {[sheet.race, sheet.character_class, sheet.subclass, `nivel ${level}`].filter(Boolean).join(' · ')}
           </p>
         </div>
       </header>
+
+      <LevelUpPanel
+        sheet={{
+          id: sheet.id,
+          character_class: sheet.character_class,
+          level,
+          subclass: sheet.subclass,
+          pending_asi: sheet.pending_asi ?? 0,
+          pending_spells: sheet.pending_spells ?? 0,
+          scores: {
+            str: sheet.str ?? 10,
+            dex: sheet.dex ?? 10,
+            con: sheet.con ?? 10,
+            int: sheet.int ?? 10,
+            wis: sheet.wis ?? 10,
+            cha: sheet.cha ?? 10,
+          },
+          spells: sheet.spells ?? [],
+        }}
+        onSaved={() => setReloadKey((k) => k + 1)}
+      />
 
       <div className="ps-sheet-stats">
         <div className="ps-sheet-stat">

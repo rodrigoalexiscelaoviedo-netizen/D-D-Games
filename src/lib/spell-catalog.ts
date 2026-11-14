@@ -94,11 +94,12 @@ export const FULL_CASTER_CLASSES = new Set(['Mago', 'Clérigo', 'Hechicero', 'Ba
  */
 export function rescaleSlots(
   current: Record<string, number> | null | undefined,
+  characterClass: string,
   fromLevel: number,
   toLevel: number,
 ): Record<string, number> {
-  const oldMax = fullCasterSlots(fromLevel);
-  const newMax = fullCasterSlots(toLevel);
+  const oldMax = slotsFor(characterClass, fromLevel);
+  const newMax = slotsFor(characterClass, toLevel);
   const out: Record<string, number> = {};
   for (const key of Object.keys(newMax)) {
     const oldCount = oldMax[key] ?? 0;
@@ -154,4 +155,93 @@ export function spellCombatProfile(spell: CatalogSpell): SpellCombatProfile {
     return { mode: 'heal', count, sides, ranged };
   }
   return { mode: 'narrative', count, sides, ranged };
+}
+
+/**
+ * Lanzadores a medias (Paladín, Explorador): espacios por nivel de personaje (índice 0 = nivel 1).
+ * Verificar contra el Manual del Jugador antes de publicar.
+ */
+const HALF_CASTER_SLOTS: number[][] = [
+  [],
+  [2],
+  [3],
+  [3],
+  [4, 2],
+  [4, 2],
+  [4, 3],
+  [4, 3],
+  [4, 3, 2],
+  [4, 3, 2],
+  [4, 3, 3],
+  [4, 3, 3],
+  [4, 3, 3, 1],
+  [4, 3, 3, 1],
+  [4, 3, 3, 2],
+  [4, 3, 3, 2],
+  [4, 3, 3, 3, 1],
+  [4, 3, 3, 3, 1],
+  [4, 3, 3, 3, 2],
+  [4, 3, 3, 3, 2],
+];
+
+/** Artificiero (5e): lanza desde el nivel 1 con la tabla de lanzador a medias, con un espacio extra al principio. */
+const ARTIFICER_SLOTS: number[][] = [
+  [2],
+  [2],
+  [3],
+  [3],
+  [4, 2],
+  [4, 2],
+  [4, 3],
+  [4, 3],
+  [4, 3, 2],
+  [4, 3, 2],
+  [4, 3, 3],
+  [4, 3, 3],
+  [4, 3, 3, 1],
+  [4, 3, 3, 1],
+  [4, 3, 3, 2],
+  [4, 3, 3, 2],
+  [4, 3, 3, 3, 1],
+  [4, 3, 3, 3, 1],
+  [4, 3, 3, 3, 2],
+  [4, 3, 3, 3, 2],
+];
+
+/** Brujo (magia de pacto): cantidad de espacios y su nivel. Todos los espacios son del mismo nivel. */
+const PACT: { count: number; level: number }[] = [
+  { count: 1, level: 1 }, { count: 2, level: 1 }, { count: 2, level: 2 }, { count: 2, level: 2 },
+  { count: 2, level: 3 }, { count: 2, level: 3 }, { count: 2, level: 4 }, { count: 2, level: 4 },
+  { count: 2, level: 5 }, { count: 2, level: 5 }, { count: 3, level: 5 }, { count: 3, level: 5 },
+  { count: 3, level: 5 }, { count: 3, level: 5 }, { count: 3, level: 5 }, { count: 3, level: 5 },
+  { count: 4, level: 5 }, { count: 4, level: 5 }, { count: 4, level: 5 }, { count: 4, level: 5 },
+];
+
+/** Clases que usan espacios de conjuro (cualquier tipo de lanzador). */
+export const SLOT_CASTER_CLASSES = new Set([
+  'Mago', 'Clérigo', 'Hechicero', 'Bardo', 'Druida', 'Paladín', 'Explorador', 'Artificiero', 'Brujo',
+]);
+
+/** Espacios de conjuro máximos de una clase en un nivel, con el formato de la ficha ({ '1': 2, ... }). */
+export function slotsFor(characterClass: string, characterLevel: number): Record<string, number> {
+  const lvl = Math.min(20, Math.max(1, Math.floor(characterLevel)));
+  if (FULL_CASTER_CLASSES.has(characterClass)) return fullCasterSlots(lvl);
+  const row =
+    characterClass === 'Paladín' || characterClass === 'Explorador'
+      ? HALF_CASTER_SLOTS[lvl - 1]
+      : characterClass === 'Artificiero'
+        ? ARTIFICER_SLOTS[lvl - 1]
+        : null;
+  if (row) {
+    const out: Record<string, number> = {};
+    row.forEach((count, i) => {
+      out[String(i + 1)] = count;
+    });
+    return out;
+  }
+  if (characterClass === 'Brujo') {
+    const pact = PACT[lvl - 1];
+    return { [String(pact.level)]: pact.count };
+  }
+  return {};
 }

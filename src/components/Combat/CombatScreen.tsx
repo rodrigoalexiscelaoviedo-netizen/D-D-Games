@@ -12,7 +12,7 @@ import './combat-screen.css';
 import { audioManager } from '../../lib/audio';
 import { SoundToggle } from '../UI/SoundToggle';
 import { useAuth } from '../../hooks/useAuth';
-import { SPELL_CATALOG, spellCombatProfile, type CatalogSpell } from '../../lib/spell-catalog';
+import { SPELL_CATALOG, SLOT_CASTER_CLASSES, spellCombatProfile, type CatalogSpell } from '../../lib/spell-catalog';
 import type { SpellEntry } from '../../lib/types';
 
 type Phase = 'awaiting_player' | 'awaiting_dm_continue' | 'showing_roll' | 'finished';
@@ -209,7 +209,7 @@ export const CombatScreen = () => {
   const turnKey = `${combat?.turn_index ?? 0}-${combat?.round ?? 1}`;
   const hasMovedThisTurn = movedKey === turnKey;
   // Clases que gastan espacios de conjuro al usar su habilidad (5e: lanzadores de conjuros).
-  const SPELLCASTERS = new Set(['Mago', 'Clérigo', 'Hechicero', 'Brujo', 'Bardo', 'Druida']);
+  const SPELLCASTERS = SLOT_CASTER_CLASSES;
   const [portraitMap, setPortraitMap] = useState<Record<string, string | null>>({});
   const [aftermath, setAftermath] = useState<(Aftermath & { playthroughId: string; treasure: string[] }) | null>(null);
   const [closing, setClosing] = useState(false);

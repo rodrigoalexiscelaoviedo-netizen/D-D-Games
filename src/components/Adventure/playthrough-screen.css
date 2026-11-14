@@ -305,3 +305,15 @@
 .pp-help { margin: 0.75rem 0; font-size: 0.92rem; }
 .pp-help summary { cursor: pointer; font-weight: 600; }
 .pp-help ul { margin: 0.5rem 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.35rem; }
+
+/* Elecciones de subida de nivel (LevelUpPanel) */
+.lu { margin: 1rem 0; padding: 1rem; border: 1px solid var(--border-gold, #6b5630); border-radius: 8px; background: var(--bg-surface, rgba(0,0,0,0.2)); }
+.lu h3 { margin: 0 0 0.25rem; font-family: var(--font-title, Georgia, serif); color: var(--gold, #d4a95a); }
+.lu-block { border: none; margin: 0.75rem 0; padding: 0; }
+.lu-block legend { font-weight: 600; margin-bottom: 0.4rem; }
+.lu-hint { color: var(--ink-muted, #b8a88a); font-size: 0.9rem; }
+.lu-option { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0.4rem 0; }
+.lu-asi { margin: 0.6rem 0; }
+.lu-asi-title { font-weight: 600; margin: 0.2rem 0; }
+.lu-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.3rem 0; }
+.lu-error { color: #e0533d; font-weight: 600; }

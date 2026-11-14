@@ -7,6 +7,12 @@ interface Props {
   characterLevel: number;
   selected: SpellEntry[];
   onChange: (next: SpellEntry[]) => void;
+  /** Máximo de conjuros que se pueden elegir aquí (por ejemplo, los nuevos de una subida de nivel). */
+  limit?: number;
+  /** Nombres de conjuros que no se ofrecen (los que ya tiene el personaje). */
+  exclude?: string[];
+  /** Nivel mínimo de conjuro que se ofrece (1 para no mostrar trucos). */
+  minLevel?: number;
 }
 
 const levelLabel = (level: number) => (level === 0 ? 'Truco' : `Nivel ${level}`);
@@ -16,7 +22,15 @@ const levelLabel = (level: number) => (level === 0 ? 'Truco' : `Nivel ${level}`)
  * Lanzadores completos solo ven los conjuros que pueden lanzar con su nivel actual.
  * Los nombres y descripciones quedan en inglés, como en el SRD.
  */
-export const SpellPicker = ({ characterClass, characterLevel, selected, onChange }: Props) => {
+export const SpellPicker = ({
+  characterClass,
+  characterLevel,
+  selected,
+  onChange,
+  limit,
+  exclude = [],
+  minLevel = 0,
+}: Props) => {
   const [query, setQuery] = useState('');
   const [levelFilter, setLevelFilter] = useState<number | 'all'>('all');
   const [openSlug, setOpenSlug] = useState<string | null>(null);
@@ -26,9 +40,15 @@ export const SpellPicker = ({ characterClass, characterLevel, selected, onChange
     ? Math.max(...Object.keys(fullCasterSlots(characterLevel)).map(Number))
     : 9;
 
+  const excludeKey = exclude.join('|');
   const available = useMemo(
-    () => (characterClass ? spellsForClass(characterClass, maxLevel) : []),
-    [characterClass, maxLevel],
+    () =>
+      characterClass
+        ? spellsForClass(characterClass, maxLevel).filter(
+            (s) => s.level >= minLevel && !excludeKey.split('|').includes(s.name),
+          )
+        : [],
+    [characterClass, maxLevel, minLevel, excludeKey],
   );
 
   if (!characterClass) {
@@ -46,7 +66,10 @@ export const SpellPicker = ({ characterClass, characterLevel, selected, onChange
       (!q || s.name.toLowerCase().includes(q)),
   );
 
+  const atLimit = limit !== undefined && selected.length >= limit;
+
   const toggle = (spell: CatalogSpell) => {
+    if (!selectedNames.has(spell.name) && atLimit) return;
     if (selectedNames.has(spell.name)) {
       onChange(selected.filter((s) => s.name !== spell.name));
     } else {
@@ -123,6 +146,7 @@ export const SpellPicker = ({ characterClass, characterLevel, selected, onChange
                     type="button"
                     className={`cf-chip ${on ? 'is-on' : ''}`}
                     aria-pressed={on}
+                    disabled={!on && atLimit}
                     onClick={() => toggle(spell)}
                   >
                     {on ? '✓ ' : ''}

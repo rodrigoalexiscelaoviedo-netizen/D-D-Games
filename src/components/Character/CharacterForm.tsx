@@ -7,7 +7,7 @@ import { CLASS_STAT_ARRAYS, SKILLS_5E } from '../../lib/d5e-data';
 import { AVATAR_STYLES, getAvatarUrl } from '../../lib/avatar-styles';
 import type { Character } from '../../lib/types';
 import { SpellPicker } from './SpellPicker';
-import { FULL_CASTER_CLASSES, fullCasterSlots } from '../../lib/spell-catalog';
+import { SLOT_CASTER_CLASSES, slotsFor } from '../../lib/spell-catalog';
 import { CLASS_GUIDE } from '../../content/class-guide';
 import './character-form.css';
 
@@ -135,9 +135,9 @@ export const CharacterForm = () => {
       if (d.xp != null) payload.xp = d.xp;
       if (d.hp_current != null) payload.hp_current = d.hp_current;
       if (d.hp_max != null) payload.hp_max = d.hp_max;
-      if (FULL_CASTER_CLASSES.has(d.character_class || '') && !d.spell_slots?.['1']) {
-        // Lanzador completo sin espacios cargados: se le dan los de su nivel (5e).
-        const maxSlots = fullCasterSlots(d.level ?? 1);
+      if (SLOT_CASTER_CLASSES.has(d.character_class || '') && !d.spell_slots?.['1']) {
+        // Lanzador sin espacios cargados: se le dan los de su clase y nivel (5e).
+        const maxSlots = slotsFor(d.character_class || '', d.level ?? 1);
         payload.spell_slots = { ...maxSlots, max1: maxSlots['1'] };
       } else if (d.spell_slots) {
         payload.spell_slots = d.spell_slots;

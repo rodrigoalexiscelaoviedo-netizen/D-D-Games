@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { SYSTEM_LABEL, PLAYSTYLE_LABEL, TONE_LABEL } from '../../lib/labels';
 import { MODULES } from '../../content/modules';
+import { GameIcon } from '../UI/GameIcon';
 import './campaign-home.css';
 
 interface Campaign {
@@ -16,10 +17,10 @@ interface Campaign {
 }
 
 const PLAY_ITEMS = [
-  { key: 'adventures', icon: '🗺️', label: 'Aventuras', desc: 'Empezar o retomar una partida', tone: 'primary' },
-  { key: 'characters', icon: '🛡️', label: 'Personajes', desc: 'Tu grupo, fichas y héroes listos', tone: '' },
-  { key: 'bestiary', icon: '🐉', label: 'Bestiario', desc: 'Criaturas del SRD con su ficha', tone: '' },
-  { key: 'wiki', icon: '📜', label: 'Notas', desc: 'Lore, personajes y pistas', tone: '' },
+  { key: 'adventures', icon: 'map', label: 'Aventuras', desc: 'Empezar o retomar una partida', tone: 'primary' },
+  { key: 'characters', icon: 'shield', label: 'Personajes', desc: 'Tu grupo, fichas y héroes listos', tone: '' },
+  { key: 'bestiary', icon: 'paw', label: 'Bestiario', desc: 'Criaturas del SRD con su ficha', tone: '' },
+  { key: 'wiki', icon: 'scroll', label: 'Notas', desc: 'Lore, personajes y pistas', tone: '' },
 ] as const;
 
 export const CampaignHome = () => {
@@ -106,7 +107,7 @@ export const CampaignHome = () => {
           <div className="ch-grid">
             {PLAY_ITEMS.map((it) => (
               <button key={it.key} className={`ch-card ${it.tone}`} onClick={() => go(it.key)}>
-                <span className="ch-icon" aria-hidden="true">{it.icon}</span>
+                <span className="ch-icon" aria-hidden="true"><GameIcon name={it.icon} /></span>
                 <span className="ch-card-label">{it.label}</span>
                 <span className="ch-card-desc">{it.desc}</span>
               </button>
@@ -119,17 +120,17 @@ export const CampaignHome = () => {
             <h2 className="ch-section">Herramientas del director</h2>
             <div className="ch-grid">
               <button className="ch-card" onClick={() => navigate(`/campaign/${campaignId}/dm-tools`)}>
-                <span className="ch-icon" aria-hidden="true">🧭</span>
+                <span className="ch-icon" aria-hidden="true"><GameIcon name="compass" /></span>
                 <span className="ch-card-label">Preparar sesión</span>
                 <span className="ch-card-desc">PNJ, mazmorras y notas de escena</span>
               </button>
               <button className="ch-card" onClick={() => navigate(`/campaign/${campaignId}/modules`)}>
-                <span className="ch-icon" aria-hidden="true">📚</span>
+                <span className="ch-icon" aria-hidden="true"><GameIcon name="book" /></span>
                 <span className="ch-card-label">Biblioteca de módulos</span>
                 <span className="ch-card-desc">Aventuras listas para instalar</span>
               </button>
               <button className="ch-card" onClick={() => navigate(`/campaign/${campaignId}/admin/adventures`)}>
-                <span className="ch-icon" aria-hidden="true">✏️</span>
+                <span className="ch-icon" aria-hidden="true"><GameIcon name="pencil" /></span>
                 <span className="ch-card-label">Editar aventuras</span>
                 <span className="ch-card-desc">Crear y cambiar escenas</span>
               </button>

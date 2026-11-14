@@ -1,7 +1,8 @@
 import { supabase } from './supabase';
 import { abilityMod } from './combat-engine';
 import { findModuleScene } from '../content/modules';
-import { FULL_CASTER_CLASSES, rescaleSlots } from './spell-catalog';
+import { SLOT_CASTER_CLASSES, rescaleSlots } from './spell-catalog';
+import { levelUpGains } from './level-up';
 
 /**
  * Botín que el módulo define para la escena. Se muestra al grupo para que lo reparta
@@ -70,7 +71,7 @@ async function applyAftermath(
 
     const { data: chars } = await supabase
       .from('characters')
-      .select('id, character_name, character_class, level, xp, hp_current, hp_max, con, spell_slots')
+      .select('id, character_name, character_class, level, xp, hp_current, hp_max, con, spell_slots, pending_asi, pending_spells')
       .eq('campaign_id', pt.campaign_id);
     const party = chars ?? [];
     if (party.length === 0) return result;
@@ -138,8 +139,17 @@ async function applyAftermath(
         patch.hp_max = hpMax;
         patch.hp_current = Math.min(hp + hpGain, hpMax);
         patch.proficiency_bonus = proficiencyFor(newLevel);
-        if (FULL_CASTER_CLASSES.has(c.character_class ?? '')) {
-          patch.spell_slots = rescaleSlots(c.spell_slots as Record<string, number> | null, level, newLevel);
+        // Mejoras de característica y conjuros nuevos: quedan pendientes hasta que el jugador los elija.
+        const gains = levelUpGains(c.character_class ?? '', level, newLevel);
+        patch.pending_asi = (c.pending_asi ?? 0) + gains.asi;
+        patch.pending_spells = (c.pending_spells ?? 0) + gains.spells;
+        if (SLOT_CASTER_CLASSES.has(c.character_class ?? '')) {
+          patch.spell_slots = rescaleSlots(
+            c.spell_slots as Record<string, number> | null,
+            c.character_class ?? '',
+            level,
+            newLevel,
+          );
         }
         result.levelUps.push({ name: c.character_name, level: newLevel, hpGain });
       }
