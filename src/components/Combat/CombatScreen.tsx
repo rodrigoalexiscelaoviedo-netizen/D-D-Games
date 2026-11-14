@@ -1002,6 +1002,25 @@ export const CombatScreen = () => {
   const isDirector = myRole === 'dm';
   const canActNow = isDirector || (!!current?.character_id && current.character_id === myCharacterId);
 
+  // Aviso de turno: si el jugador está mirando otra cosa, la pestaña y el sonido le avisan cuando le toca.
+  const myTurnNow = !!current?.character_id && current.character_id === myCharacterId;
+  useEffect(() => {
+    if (!myTurnNow || !combat) return;
+    const previousTitle = document.title;
+    document.title = '¡Te toca! · Combate';
+    audioManager.playEffect('attack');
+    const restore = () => {
+      document.title = previousTitle;
+    };
+    window.addEventListener('focus', restore, { once: true });
+    return () => {
+      window.removeEventListener('focus', restore);
+      restore();
+    };
+    // Solo al cambiar de turno: 'turnKey' identifica cada turno.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myTurnNow, turnKey]);
+
   const rowStatus = (p: any) => {
     if (p.has_fled) return 'Huyó';
     if (p.status === 'dead') return 'Muerto';

@@ -9,6 +9,16 @@ const CR_OPTIONS = [0.125, 0.25, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 const crLabel = (cr: number) => (cr === 0.125 ? '1/8' : cr === 0.25 ? '1/4' : cr === 0.5 ? '1/2' : String(cr));
 
+// Tamaños y tipos de criatura en español (los datos vienen de Open5e en inglés).
+const SIZE_ES: Record<string, string> = {
+  Tiny: 'Diminuto', Small: 'Pequeño', Medium: 'Mediano', Large: 'Grande', Huge: 'Enorme', Gargantuan: 'Gigantesco',
+};
+const TYPE_ES: Record<string, string> = {
+  Aberration: 'Aberración', Beast: 'Bestia', Celestial: 'Celestial', Construct: 'Constructo', Dragon: 'Dragón',
+  Elemental: 'Elemental', Fey: 'Feérico', Fiend: 'Infernal', Giant: 'Gigante', Humanoid: 'Humanoide',
+  Monstrosity: 'Monstruo', Ooze: 'Cieno', Plant: 'Planta', Undead: 'No muerto',
+};
+
 export const BestiaryScreen = () => {
   const navigate = useNavigate();
   const [creatures, setCreatures] = useState<Creature[]>([]);
@@ -108,7 +118,7 @@ export const BestiaryScreen = () => {
                     <span className="creature-name">{c.name}</span>
                     <span className="cr-badge">FP {crLabel(Number(c.cr))}</span>
                   </div>
-                  <p className="creature-kind">{[c.size, c.type].filter(Boolean).join(' · ')}</p>
+                  <p className="creature-kind">{[SIZE_ES[c.size] ?? c.size, TYPE_ES[c.type] ?? c.type].filter(Boolean).join(' · ')}</p>
                   <p className="creature-core"><span>PG {c.hp}</span><span>CA {c.ac}</span></p>
                 </div>
               </button>
@@ -123,7 +133,7 @@ export const BestiaryScreen = () => {
             <button className="sheet-close" onClick={() => setDetail(null)} aria-label="Cerrar">×</button>
             <img src={creatureImage(detail.type)} alt="" />
             <div className="sheet-body">
-              <p className="eyebrow">{[detail.size, detail.type].filter(Boolean).join(' · ')}</p>
+              <p className="eyebrow">{[SIZE_ES[detail.size] ?? detail.size, TYPE_ES[detail.type] ?? detail.type].filter(Boolean).join(' · ')}</p>
               <h2>{detail.name}</h2>
               <div className="sheet-core">
                 <div><span>FP</span><strong>{crLabel(Number(detail.cr))}</strong></div>

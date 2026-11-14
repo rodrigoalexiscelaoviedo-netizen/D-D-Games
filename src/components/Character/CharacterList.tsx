@@ -8,6 +8,9 @@ import './characters.css';
 
 const mod = (score: number) => fmtMod(score);
 
+// Abreviaturas de atributos en español (como en 5e en castellano).
+const ABILITY_ABBR: Record<string, string> = { str: 'FUE', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' };
+
 export const CharacterList = () => {
   const { campaignId } = useParams();
   const navigate = useNavigate();
@@ -116,7 +119,7 @@ export const CharacterList = () => {
                   </div>
                   <div className="char-abilities">
                     {(['str', 'dex', 'con', 'int', 'wis', 'cha'] as const).map((k) => (
-                      <span key={k}><small>{k.toUpperCase()}</small>{mod(c[k])}</span>
+                      <span key={k}><small>{ABILITY_ABBR[k] ?? k.toUpperCase()}</small>{mod(c[k])}</span>
                     ))}
                   </div>
                 </div>
