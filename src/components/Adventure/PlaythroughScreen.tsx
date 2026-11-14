@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { cerrarCombate, cancelarCombate, resolverCombateSinCombate, type Aftermath } from '../../lib/combat-return';
-import { abilityMod, rollInitiative } from '../../lib/combat-engine';
+import { abilityMod, rollInitiative, attackAbilityFor } from '../../lib/combat-engine';
 import type { Playthrough, Scene, SceneOption } from '../../lib/adventure-types';
 import { toPlayerScene, toPlayerOption } from '../../lib/adventure-types';
 import { ScenePlayerView } from './ScenePlayerView';
@@ -15,6 +15,7 @@ import { findModuleByOrigin } from '../../content/modules';
 import './playthrough-screen.css';
 import { SoundToggle } from '../UI/SoundToggle';
 import { RecentEvents } from './RecentEvents';
+import { PlayerSheet } from './PlayerSheet';
 
 // Resumen en una línea de lo que dejó el combate (XP, niveles, personajes estabilizados).
 const describeAftermath = (a: Aftermath): string => {
@@ -50,6 +51,7 @@ export const PlaythroughScreen = () => {
   const [adventureOrigin, setAdventureOrigin] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [okNotice, setOkNotice] = useState<string | null>(null);
+  const [showSheet, setShowSheet] = useState(false);
 
   const module = findModuleByOrigin(adventureOrigin);
   const moduleScene = module && scene ? module.scenes.find((s) => s.order === scene.scene_order) : undefined;
@@ -522,7 +524,8 @@ export const PlaythroughScreen = () => {
             armor_class: char.armor_class,
             dexterity: char.dex,
             // Bono de ataque: modificador de FUE + bonificador de competencia.
-            attack_bonus: abilityMod(char.str) + (char.proficiency_bonus ?? 2),
+            // Atributo de ataque según la clase (ver attackAbilityFor).
+            attack_bonus: abilityMod((char as any)[attackAbilityFor(char.character_class)]) + (char.proficiency_bonus ?? 2),
             // Los personajes empiezan a la izquierda del mapa (sql/015).
             pos_x: 0,
             pos_y: ci % 6,
@@ -820,6 +823,15 @@ export const PlaythroughScreen = () => {
           </button>
         </div>
       )}
+
+      {!isDM && playthrough?.campaign_id && (
+        <div className="ps-hint-bar">
+          <button className="ps-btn ps-btn-ghost" aria-expanded={showSheet} onClick={() => setShowSheet((v) => !v)}>
+            {showSheet ? 'Ocultar mi personaje' : 'Ver mi personaje'}
+          </button>
+        </div>
+      )}
+      {showSheet && playthroughId && <PlayerSheet playthroughId={playthroughId} />}
 
       {playthroughId && <RecentEvents playthroughId={playthroughId} />}
 

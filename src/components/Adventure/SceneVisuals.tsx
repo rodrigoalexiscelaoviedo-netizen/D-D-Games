@@ -7,6 +7,7 @@ export const visualFlags = {
   map: (order: number) => `vis:map:${order}`,
   area: (order: number, areaId: string) => `vis:area:${order}:${areaId}`,
   handout: (id: string) => `vis:handout:${id}`,
+  check: (order: number, index: number, result: 'ok' | 'fail') => `vis:check:${order}:${index}:${result}`,
 };
 
 interface Props {
@@ -74,6 +75,23 @@ export const PlayerVisuals = ({ module, scene, flags }: Props) => {
           <div className="battle-map-frame">
             <BattleMap map={scene.map} isDM={false} revealed={revealedAreas} />
           </div>
+        </section>
+      )}
+      {(scene.checks ?? []).some((_, i) => flags[visualFlags.check(scene.order, i, 'ok')] || flags[visualFlags.check(scene.order, i, 'fail')]) && (
+        <section className="visual-block">
+          <h3>🎲 Resultado de las pruebas</h3>
+          <ul className="check-outcomes">
+            {(scene.checks ?? []).map((c, i) => {
+              const ok = flags[visualFlags.check(scene.order, i, 'ok')];
+              const fail = flags[visualFlags.check(scene.order, i, 'fail')];
+              if (!ok && !fail) return null;
+              return (
+                <li key={i} className={ok ? 'is-ok' : 'is-fail'}>
+                  <strong>{c.skill}:</strong> {ok ? 'lo lograron.' : 'no lo lograron.'}
+                </li>
+              );
+            })}
+          </ul>
         </section>
       )}
       {handouts.length > 0 && (
@@ -182,7 +200,33 @@ export const DMVisuals = ({ module, scene, flags, onToggleFlag }: Props) => {
         <section className="visual-block">
           <h3>🎲 Pruebas de característica</h3>
           <div className="check-grid">
-            {scene.checks.map((c, i) => <SkillCheckCard key={i} check={c} />)}
+            {scene.checks.map((c, i) => {
+              const okKey = visualFlags.check(scene.order, i, 'ok');
+              const failKey = visualFlags.check(scene.order, i, 'fail');
+              return (
+                <div key={i} className="check-wrap">
+                  <SkillCheckCard check={c} />
+                  <div className="check-result-controls" role="group" aria-label={`Resultado de ${c.skill}`}>
+                    <span className="check-result-label">¿Qué pasó?</span>
+                    <button
+                      className={flags[okKey] ? 'btn-primary btn-small' : 'btn-secondary btn-small'}
+                      aria-pressed={Boolean(flags[okKey])}
+                      onClick={() => toggle(okKey)}
+                    >
+                      {flags[okKey] ? '✓ Lo lograron' : 'Lo lograron'}
+                    </button>
+                    <button
+                      className={flags[failKey] ? 'btn-primary btn-small' : 'btn-secondary btn-small'}
+                      aria-pressed={Boolean(flags[failKey])}
+                      onClick={() => toggle(failKey)}
+                    >
+                      {flags[failKey] ? '✓ No lo lograron' : 'No lo lograron'}
+                    </button>
+                    <span className="check-result-hint">Esto queda registrado y lo ven los jugadores.</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

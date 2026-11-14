@@ -15,9 +15,43 @@ export const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [playing, setPlaying] = useState<Array<{ playthroughId: string; campaignId: string; campaignName: string; role: string }>>([]);
+
   useEffect(() => {
     void loadCampaigns();
+    void loadPlaying();
   }, [auth.user]);
+
+  // Partidas donde la persona participa (como jugador o como director), con el nombre de la campaña.
+  const loadPlaying = async () => {
+    if (!auth.user) return;
+    const { data: parts } = await supabase
+      .from('playthrough_participants')
+      .select('playthrough_id, role')
+      .eq('user_id', auth.user.id);
+    if (!parts || parts.length === 0) {
+      setPlaying([]);
+      return;
+    }
+    const { data: pts } = await supabase
+      .from('playthroughs')
+      .select('id, campaign_id')
+      .in('id', parts.map((p) => p.playthrough_id));
+    const { data: camps } = await supabase
+      .from('campaigns')
+      .select('id, name')
+      .in('id', (pts ?? []).map((p) => p.campaign_id));
+    const nameOf = new Map((camps ?? []).map((c) => [c.id, c.name]));
+    const roleOf = new Map(parts.map((p) => [p.playthrough_id, p.role]));
+    setPlaying(
+      (pts ?? []).map((p) => ({
+        playthroughId: p.id,
+        campaignId: p.campaign_id,
+        campaignName: nameOf.get(p.campaign_id) ?? 'Campaña',
+        role: roleOf.get(p.id) ?? 'player',
+      }))
+    );
+  };
 
   const loadCampaigns = async () => {
     try {
@@ -64,7 +98,7 @@ export const Dashboard = () => {
       <section className="hero" style={{ backgroundImage: HERO_IMAGE ? `url(${HERO_IMAGE})` : undefined }}>
         <div className="hero-copy">
           <p className="eyebrow">Mesa de juego</p>
-          <h1>{campaigns.length > 0 ? 'Tus campañas' : 'Armá tu primera aventura'}</h1>
+          <h1>{campaigns.length > 0 || playing.length > 0 ? 'Tu mesa de juego' : 'Armá tu primera aventura'}</h1>
           <p className="lede">
             {campaigns.length > 0
               ? 'Retomá una campaña, preparate una sesión o sumá héroes listos para jugar.'
@@ -85,6 +119,28 @@ export const Dashboard = () => {
           </div>
         )}
 
+        {playing.length > 0 && (
+          <>
+            <div className="section-head">
+              <h2>Partidas en las que jugás</h2>
+              <span className="count">{playing.length}</span>
+            </div>
+            <ul className="campaign-grid play-grid">
+              {playing.map((g) => (
+                <li key={g.playthroughId}>
+                  <button className="campaign-card" onClick={() => navigate(`/campaign/${g.campaignId}/play/${g.playthroughId}/lobby`)}>
+                    <div className="campaign-body">
+                      <p className="campaign-system">{g.role === 'dm' ? 'Dirigís la partida' : 'Jugás'}</p>
+                      <h3>{g.campaignName}</h3>
+                      <span className="campaign-open">Entrar a la partida →</span>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
         <div className="section-head">
           <h2>Campañas</h2>
           <span className="count">{campaigns.length}</span>
@@ -92,6 +148,8 @@ export const Dashboard = () => {
 
         {loading ? (
           <p className="state">Cargando campañas…</p>
+        ) : campaigns.length === 0 && playing.length > 0 ? (
+          <p className="state">Todavía no creaste ninguna campaña. Las partidas en las que jugás están arriba.</p>
         ) : campaigns.length === 0 ? (
           <div className="empty">
             <p className="empty-title">Todavía no tenés campañas</p>

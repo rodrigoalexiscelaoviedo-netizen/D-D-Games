@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { cerrarCombate, treasureForScene, type Aftermath } from '../../lib/combat-return';
 import {
   resolveAttack, nextAliveIndex, isCombatOver, abilityMod, roll, skillCheck, getAbility,
-  parseDying, canAct, targetOutcome, deathSave,
+  parseDying, canAct, targetOutcome, deathSave, attackAbilityFor,
 } from '../../lib/combat-engine';
 import { CombatAnimation } from './CombatAnimations';
 import type { RollResult } from '../../lib/combat-engine';
@@ -230,7 +230,7 @@ export const CombatScreen = () => {
     if (charIds.length > 0) {
       const { data: chars } = await supabase
         .from('characters')
-        .select('id, character_class, str, portrait_url, inventory, spell_slots, player_user_id')
+        .select('id, character_class, str, dex, int, wis, cha, portrait_url, inventory, spell_slots, player_user_id')
         .in('id', charIds);
       setMyCharacterId((chars || []).find((ch) => ch.player_user_id === user?.id)?.id ?? null);
       const inv: Record<string, any[]> = {};
@@ -246,7 +246,8 @@ export const CombatScreen = () => {
       const portraits: Record<string, string | null> = {};
       (chars || []).forEach((c) => {
         map[c.id] = c.character_class;
-        strengths[c.id] = c.str;
+        // El daño suma el modificador del atributo de ataque de la clase (ver attackAbilityFor).
+        strengths[c.id] = (c as any)[attackAbilityFor(c.character_class)];
         portraits[c.id] = c.portrait_url ?? null;
       });
       setClassMap(map);

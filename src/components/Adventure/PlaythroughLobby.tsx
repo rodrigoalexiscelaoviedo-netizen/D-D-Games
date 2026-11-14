@@ -80,6 +80,16 @@ export const PlaythroughLobby = () => {
         .eq('playthrough_id', playthroughId);
       if (partsErr) throw partsErr;
 
+      // Si la persona ya eligió personaje (antes de este cambio), se la asigna como dueña de la ficha.
+      const mine = (parts ?? []).find((p: any) => p.user_id === user?.id);
+      if (mine?.character_id && user?.id) {
+        await supabase
+          .from('characters')
+          .update({ player_user_id: user.id })
+          .eq('id', mine.character_id)
+          .is('player_user_id', null);
+      }
+
       setParticipants(
         (parts ?? []).map((p: any) => ({
           ...p,
@@ -190,6 +200,11 @@ export const PlaythroughLobby = () => {
         .eq('id', currentUserParticipant.id)
         .select();
       if (updateError) throw updateError;
+
+      // Marca a esta persona como dueña de la ficha: así ve su ficha y puede jugar su turno en el combate.
+      if (user?.id) {
+        await supabase.from('characters').update({ player_user_id: user.id }).eq('id', characterId);
+      }
 
       const character = characters.find((c) => c.id === characterId) ?? null;
       setParticipants((prev) =>

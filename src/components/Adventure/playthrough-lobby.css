@@ -57,6 +57,9 @@
   box-shadow: var(--shadow-card);
 }
 .pl-seat.is-ready { border-color: var(--border-gold); }
+/* El botón de pasar la dirección va en su propia línea, debajo del asiento. */
+.pl-seat { flex-wrap: wrap; }
+.pl-give-dm { flex-basis: 100%; font-size: 13px; padding: 8px 12px; }
 .pl-seat-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .pl-seat-role { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
 .pl-seat-name { font-family: var(--font-title); font-size: 17px; color: var(--gold-bright); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

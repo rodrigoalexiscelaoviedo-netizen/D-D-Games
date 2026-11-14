@@ -12,6 +12,30 @@ export interface RollResult {
 
 export const roll = (sides: number): number => Math.floor(Math.random() * sides) + 1;
 
+export type AttackAbility = 'str' | 'dex' | 'int' | 'wis' | 'cha';
+
+/** Atributo con el que ataca cada clase (aproximación de 5e): lanzadores con su atributo de conjuros,
+ *  ágiles con Destreza, el resto con Fuerza. */
+export const attackAbilityFor = (className?: string | null): AttackAbility => {
+  switch (className) {
+    case 'Mago':
+      return 'int';
+    case 'Hechicero':
+    case 'Brujo':
+    case 'Bardo':
+      return 'cha';
+    case 'Clérigo':
+    case 'Druida':
+      return 'wis';
+    case 'Explorador':
+    case 'Pícaro':
+    case 'Monje':
+      return 'dex';
+    default:
+      return 'str';
+  }
+};
+
 export const abilityMod = (score?: number): number =>
   score == null ? 0 : Math.floor((score - 10) / 2);
 
