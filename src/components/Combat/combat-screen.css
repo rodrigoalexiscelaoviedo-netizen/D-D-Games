@@ -117,6 +117,24 @@
 .cs-row-name { display: inline-flex; align-items: center; gap: 10px; }
 .cs-row.is-down .cs-token { filter: grayscale(1); opacity: 0.6; }
 
+/* Mapa del combate */
+.cs-board { display: inline-flex; flex-direction: column; gap: 4px; padding: 12px; background: var(--bg-surface); border: 1px solid var(--border-gold); border-radius: var(--radius); align-self: center; box-shadow: var(--shadow-card); }
+.cs-board-row { display: flex; gap: 4px; }
+.cs-cell {
+  width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; padding: 0;
+  background: linear-gradient(160deg, rgba(237, 228, 211, 0.04), var(--bg-base));
+  border: 1px solid var(--border-soft); border-radius: 3px; cursor: default;
+  transition-property: background-color, border-color, transform; transition-duration: 160ms; transition-timing-function: var(--ease-out);
+}
+.cs-cell.is-reach { cursor: pointer; border-color: var(--gold-bright); background: rgba(201, 162, 75, 0.2); }
+.cs-cell.is-reach:hover { background: rgba(201, 162, 75, 0.35); }
+.cs-cell.is-reach:active { transform: scale(0.96); }
+.cs-cell.is-current { outline: 2px solid var(--gold-bright); outline-offset: -2px; }
+.cs-cell:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+.cs-board-legend { margin: 6px 0 0; text-align: center; max-width: 420px; }
+@media (max-width: 720px) { .cs-cell { width: 40px; height: 40px; } }
+@media (prefers-reduced-motion: reduce) { .cs-cell { transition: none; } }
+
 .cs-error-bar { margin: 12px 28px 0; padding: 10px 14px; border-radius: var(--radius); background: rgba(124, 45, 58, 0.25); border: 1px solid var(--wine-bright); color: var(--ink); }
 
 /* Mensajes de espera (cada persona sabe qué le toca) */

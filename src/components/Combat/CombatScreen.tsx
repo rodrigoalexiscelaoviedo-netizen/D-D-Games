@@ -15,6 +15,57 @@ import { useAuth } from '../../hooks/useAuth';
 
 type Phase = 'awaiting_player' | 'awaiting_dm_continue' | 'showing_roll' | 'finished';
 
+// --- Mapa del combate (sql/015). Cuadrícula de 8 × 6. Distancia en casillas, diagonal = 1 (como en 5e). ---
+const BOARD_W = 8;
+const BOARD_H = 6;
+const MOVE_SPEED = 6; // casillas por turno
+const MELEE_REACH = 1; // cuerpo a cuerpo: estar al lado
+
+type Pos = { id?: string; pos_x?: number | null; pos_y?: number | null };
+
+const distance = (a: Pos, b: Pos): number =>
+  a.pos_x == null || a.pos_y == null || b.pos_x == null || b.pos_y == null
+    ? 99
+    : Math.max(Math.abs(a.pos_x - b.pos_x), Math.abs(a.pos_y - b.pos_y));
+
+const occupiedAt = (list: Array<Pos & { hp_current?: number; status?: string | null }>, x: number, y: number, exceptId?: string) =>
+  list.some(
+    (p) => p.id !== exceptId && p.pos_x === x && p.pos_y === y && ((p.hp_current ?? 0) > 0 || parseDyingLoose(p.status))
+  );
+
+const parseDyingLoose = (status?: string | null) => /^dying:/.test(status ?? '');
+
+const inBoard = (x: number, y: number) => x >= 0 && y >= 0 && x < BOARD_W && y < BOARD_H;
+
+// Da hasta MOVE_SPEED pasos hacia el objetivo, sin pisar a nadie, hasta quedar al alcance.
+const stepToward = (
+  from: Pos & { id: string },
+  to: Pos,
+  all: Array<Pos & { hp_current?: number; status?: string | null }>
+): { x: number; y: number } => {
+  let x = from.pos_x ?? 0;
+  let y = from.pos_y ?? 0;
+  for (let s = 0; s < MOVE_SPEED && distance({ pos_x: x, pos_y: y }, to) > MELEE_REACH; s++) {
+    const dx = Math.sign((to.pos_x ?? 0) - x);
+    const dy = Math.sign((to.pos_y ?? 0) - y);
+    const options: Array<[number, number]> = [
+      [x + dx, y + dy],
+      [x + dx, y],
+      [x, y + dy],
+    ];
+    const next = options.find(
+      ([cx, cy]) =>
+        (cx !== x || cy !== y) &&
+        inBoard(cx, cy) &&
+        !occupiedAt(all, cx, cy, from.id) &&
+        !(cx === to.pos_x && cy === to.pos_y)
+    );
+    if (!next) break;
+    [x, y] = next;
+  }
+  return { x, y };
+};
+
 // Ficha de cada participante: retrato si lo tiene; si no, inicial (y número del enemigo: "K2").
 const Token = ({
   name,
@@ -110,6 +161,10 @@ export const CombatScreen = () => {
   const { user } = useAuth();
   const [myRole, setMyRole] = useState<'dm' | 'player' | null>(null);
   const [myCharacterId, setMyCharacterId] = useState<string | null>(null);
+  // Un movimiento por turno: se guarda la clave del turno en que ya se movió.
+  const [movedKey, setMovedKey] = useState<string | null>(null);
+  const turnKey = `${combat?.turn_index ?? 0}-${combat?.round ?? 1}`;
+  const hasMovedThisTurn = movedKey === turnKey;
   // Clases que gastan espacios de conjuro al usar su habilidad (5e: lanzadores de conjuros).
   const SPELLCASTERS = new Set(['Mago', 'Clérigo', 'Hechicero', 'Brujo', 'Bardo', 'Druida']);
   const [portraitMap, setPortraitMap] = useState<Record<string, string | null>>({});
@@ -139,6 +194,18 @@ export const CombatScreen = () => {
       .select('*')
       .eq('combat_id', combatId)
       .order('turn_order', { ascending: true });
+
+    // Combates anteriores al mapa: si no tienen posiciones, se ubican como al empezar.
+    if ((p || []).length > 0 && (p || []).every((row) => row.pos_x == null)) {
+      let pi = 0;
+      let ei = 0;
+      for (const row of p || []) {
+        const pos = row.is_player ? { pos_x: 0, pos_y: pi++ % BOARD_H } : { pos_x: BOARD_W - 1, pos_y: ei++ % BOARD_H };
+        row.pos_x = pos.pos_x;
+        row.pos_y = pos.pos_y;
+        await supabase.from('combat_participants').update(pos).eq('id', row.id);
+      }
+    }
 
     setCombat(c);
     setParticipants(p || []);
@@ -281,8 +348,25 @@ export const CombatScreen = () => {
     await refetch();
   };
 
+  // Moverse: hasta MOVE_SPEED casillas, una vez por turno, a una casilla libre.
+  const moveTo = async (x: number, y: number) => {
+    if (busy || !current || hasMovedThisTurn) return;
+    const d = distance(current, { pos_x: x, pos_y: y });
+    if (d === 0 || d > MOVE_SPEED || occupiedAt(participants, x, y, current.id)) return;
+    setBusy(true);
+    await supabase.from('combat_participants').update({ pos_x: x, pos_y: y }).eq('id', current.id);
+    setMovedKey(turnKey);
+    await refetch();
+    setBusy(false);
+  };
+
   const doAttack = async (target: any) => {
     if (busy || !current) return;
+    if (distance(current, target) > MELEE_REACH) {
+      setPickingTarget(null); // cierra el selector para que vuelvan las acciones
+      setCloseError('Está lejos. Movete al lado del enemigo (una casilla) antes de atacar cuerpo a cuerpo.');
+      return;
+    }
     setBusy(true);
     setPickingTarget(null);
 
@@ -327,6 +411,11 @@ export const CombatScreen = () => {
   const doAbility = async (target?: any) => {
     if (busy || !current) return;
     const ability = getAbility(classMap[current.character_id]);
+    if (target && ability.kind === 'attack' && distance(current, target) > MELEE_REACH) {
+      setPickingTarget(null);
+      setCloseError('Está lejos. Movete al lado del enemigo antes de usar esta habilidad.');
+      return;
+    }
     setBusy(true);
     setPickingTarget(null);
 
@@ -513,6 +602,17 @@ export const CombatScreen = () => {
       return;
     }
 
+    // El enemigo se acerca primero. Si no llega al alcance, el turno termina sin atacar.
+    if (distance(current, target) > MELEE_REACH) {
+      const to = stepToward(current, target, participants);
+      await supabase.from('combat_participants').update({ pos_x: to.x, pos_y: to.y }).eq('id', current.id);
+      if (distance({ pos_x: to.x, pos_y: to.y }, target) > MELEE_REACH) {
+        await commitTurn({ newLog: [...log, `${current.name} se acerca a ${target.name}.`] });
+        setBusy(false);
+        return;
+      }
+    }
+
     const result = resolveAttack(
       current.attack_bonus ?? 3,
       effectiveAC(target),
@@ -634,6 +734,48 @@ export const CombatScreen = () => {
       );
     });
 
+  // Mapa: las casillas a las que el personaje que juega puede moverse se marcan en dorado.
+  const canMoveNow = canActNow && phase === 'awaiting_player' && !hasMovedThisTurn && !!current && !pickingTarget;
+  const renderBoard = () => (
+    <div className="cs-board" role="grid" aria-label="Mapa del combate">
+      {Array.from({ length: BOARD_H }).map((_, y) => (
+        <div key={y} className="cs-board-row" role="row">
+          {Array.from({ length: BOARD_W }).map((_, x) => {
+            const occ = participants.find(
+              (p) => p.pos_x === x && p.pos_y === y && ((p.hp_current ?? 0) > 0 || parseDying(p.status).dying)
+            );
+            const reachable =
+              canMoveNow && !occ && current != null && distance(current, { pos_x: x, pos_y: y }) <= MOVE_SPEED;
+            const isCurrent = occ != null && occ.id === current?.id;
+            return (
+              <button
+                key={x}
+                role="gridcell"
+                className={`cs-cell ${reachable ? 'is-reach' : ''} ${occ ? 'has-token' : ''} ${isCurrent ? 'is-current' : ''}`}
+                disabled={!reachable}
+                onClick={() => moveTo(x, y)}
+                aria-label={
+                  occ ? `${occ.name}, casilla ${x + 1}, ${y + 1}` : reachable ? `Moverse a la casilla ${x + 1}, ${y + 1}` : `Casilla ${x + 1}, ${y + 1}`
+                }
+              >
+                {occ && (
+                  <Token name={occ.name} src={occ.is_player ? portraitMap[occ.character_id] : null} enemy={!occ.is_player} size="sm" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+      <p className="cs-hint cs-board-legend">
+        {canMoveNow
+          ? `Tocá una casilla dorada para moverte (hasta ${MOVE_SPEED} casillas). Después podés atacar si el enemigo está al lado.`
+          : phase === 'awaiting_player' && !canActNow
+            ? `Mapa: esperá tu turno. Hoy juega ${current?.name}.`
+            : 'Mapa del combate. Los enemigos se acercan solos.'}
+      </p>
+    </div>
+  );
+
   return (
     <div className="cs">
       <header className="cs-top">
@@ -661,6 +803,8 @@ export const CombatScreen = () => {
 
       <div className="cs-body">
         <section className="cs-stage" aria-live="polite">
+          {!outcome && !aftermath && renderBoard()}
+
           {aftermath && (
             <div className={`cs-outcome ${aftermath.resultado === 'victory' ? 'cs-win' : 'cs-lose'}`}>
               <h2>{aftermath.resultado === 'victory' ? '¡Victoria!' : 'Derrota'}</h2>

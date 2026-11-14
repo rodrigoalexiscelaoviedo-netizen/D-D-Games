@@ -505,9 +505,12 @@ export const PlaythroughScreen = () => {
             dexterity: enemy.dexterity,
             damage_dice: enemy.damage_dice,
             attack_bonus: enemy.attack_bonus,
+            // Los enemigos empiezan a la derecha del mapa (sql/015).
+            pos_x: 7,
+            pos_y: i % 6,
           },
         })),
-        ...characters.map((char) => ({
+        ...characters.map((char, ci) => ({
           init: rollInitiative(char.dex ?? 10).total,
           row: {
             combat_id: combat.id,
@@ -520,6 +523,9 @@ export const PlaythroughScreen = () => {
             dexterity: char.dex,
             // Bono de ataque: modificador de FUE + bonificador de competencia.
             attack_bonus: abilityMod(char.str) + (char.proficiency_bonus ?? 2),
+            // Los personajes empiezan a la izquierda del mapa (sql/015).
+            pos_x: 0,
+            pos_y: ci % 6,
           },
         })),
       ];
