@@ -102,7 +102,9 @@ async function applyAftermath(
           .limit(1)
           .maybeSingle();
         result.xpTotal = (monster?.xp_value ?? 0) * (enc.count ?? 1);
-        result.xpEach = Math.floor(result.xpTotal / party.length);
+        // Solo reparten los que siguen de pie o estables: quien murió no suma XP.
+        const survivors = Math.max(1, party.filter((c) => !deadCharacters.has(c.id)).length);
+        result.xpEach = Math.floor(result.xpTotal / survivors);
       }
     }
 

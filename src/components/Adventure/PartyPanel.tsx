@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { xpForNextLevel } from '../../lib/combat-return';
+import { abilityMod, roll } from '../../lib/combat-engine';
 
 interface Member {
   id: string;
@@ -9,11 +10,23 @@ interface Member {
   race?: string | null;
   level?: number | null;
   xp?: number | null;
+  con?: number | null;
+  hit_dice_left?: number | null;
   hp_current?: number | null;
   hp_max?: number | null;
   portrait_url?: string | null;
   spell_slots?: Record<string, number> | null;
 }
+
+// Dado de golpe por clase (5e).
+const HIT_DIE: Record<string, number> = {
+  'Bárbaro': 12,
+  'Guerrero': 10, 'Paladín': 10, 'Explorador': 10,
+  'Bardo': 8, 'Clérigo': 8, 'Druida': 8, 'Monje': 8, 'Pícaro': 8, 'Brujo': 8, 'Artificiero': 8,
+  'Hechicero': 6, 'Mago': 6,
+};
+
+const hitDieOf = (cls?: string | null) => HIT_DIE[cls ?? ''] ?? 8;
 
 /** Estado del grupo para el DM: vida, nivel, experiencia y descansos. */
 export const PartyPanel = ({ campaignId }: { campaignId: string }) => {
@@ -24,7 +37,7 @@ export const PartyPanel = ({ campaignId }: { campaignId: string }) => {
   const load = async () => {
     const { data } = await supabase
       .from('characters')
-      .select('id, character_name, character_class, race, level, xp, hp_current, hp_max, portrait_url, spell_slots')
+      .select('id, character_name, character_class, race, level, xp, con, hit_dice_left, hp_current, hp_max, portrait_url, spell_slots')
       .eq('campaign_id', campaignId)
       .order('character_name', { ascending: true });
     setParty((data ?? []) as Member[]);
@@ -34,39 +47,62 @@ export const PartyPanel = ({ campaignId }: { campaignId: string }) => {
     void load();
   }, [campaignId]);
 
-  // Descanso corto (simplificado): recupera la mitad de la vida perdida, redondeando hacia arriba.
-  // Descanso largo: vida completa (regla de 5e).
+  // Descanso corto (5e): se gastan dados de golpe; cada uno cura su tirada + CON (mínimo 0).
+  // Descanso largo (5e): vida completa, espacios de conjuro al máximo y vuelve la mitad de los dados de golpe.
   const rest = async (kind: 'short' | 'long') => {
     if (!party) return;
     setBusy(true);
     setMessage('');
     let failed = false;
+    const lines: string[] = [];
+
     for (const m of party) {
+      const level = Math.max(1, m.level ?? 1);
       const max = m.hp_max ?? 0;
-      const cur = Math.max(0, m.hp_current ?? max);
-      const next = kind === 'long' ? max : Math.min(max, cur + Math.ceil((max - cur) / 2));
+      const cur0 = Math.max(0, m.hp_current ?? max);
+      const diceLeft = m.hit_dice_left ?? level;
+      const patch: Record<string, unknown> = {};
 
-      // Descanso largo: también recupera los espacios de conjuro de nivel 1 (hasta su máximo guardado).
-      const slots = m.spell_slots ?? {};
-      const restoredSlots =
-        kind === 'long' && typeof slots['max1'] === 'number'
-          ? { ...slots, '1': slots['max1'] }
-          : null;
+      if (kind === 'long') {
+        patch.hp_current = max;
+        patch.hit_dice_left = Math.min(level, diceLeft + Math.max(1, Math.floor(level / 2)));
+        const slots = m.spell_slots ?? {};
+        if (typeof slots['max1'] === 'number') patch.spell_slots = { ...slots, '1': slots['max1'] };
+        lines.push(`${m.character_name}: vida completa.`);
+      } else {
+        const die = hitDieOf(m.character_class);
+        const con = abilityMod(m.con ?? 10);
+        let hp = cur0;
+        let dice = diceLeft;
+        let spent = 0;
+        let healed = 0;
+        while (dice > 0 && hp < max) {
+          const heal = Math.max(0, roll(die) + con);
+          hp = Math.min(max, hp + heal);
+          healed += heal;
+          dice -= 1;
+          spent += 1;
+        }
+        if (spent === 0) {
+          lines.push(`${m.character_name}: no necesita curarse o no le quedan dados.`);
+          continue;
+        }
+        patch.hp_current = hp;
+        patch.hit_dice_left = dice;
+        lines.push(`${m.character_name}: gastó ${spent} dado${spent === 1 ? '' : 's'} de golpe y recuperó ${healed} PV.`);
+      }
 
-      if (next === cur && !restoredSlots) continue;
-      const patch: Record<string, unknown> = { hp_current: next };
-      if (restoredSlots) patch.spell_slots = restoredSlots;
+      if (Object.keys(patch).length === 0) continue;
       const { error } = await supabase.from('characters').update(patch).eq('id', m.id);
       if (error) failed = true;
     }
+
     await load();
     setBusy(false);
     setMessage(
       failed
-        ? 'No se pudo actualizar la vida de algún personaje.'
-        : kind === 'long'
-          ? 'Descanso largo: el grupo recuperó toda la vida.'
-          : 'Descanso corto: cada personaje recuperó la mitad de la vida que le faltaba.'
+        ? 'No se pudo actualizar a algún personaje.'
+        : `${kind === 'long' ? 'Descanso largo' : 'Descanso corto'}. ${lines.join(' ')}`
     );
   };
 
@@ -81,7 +117,7 @@ export const PartyPanel = ({ campaignId }: { campaignId: string }) => {
             className="ps-btn ps-btn-ghost"
             onClick={() => rest('short')}
             disabled={busy || party.length === 0}
-            title="Una hora de pausa. Regla simplificada: recuperan la mitad de la vida que les falta."
+            title="Una hora de pausa. Cada personaje gasta dados de golpe para curarse (tirada del dado + Constitución)."
           >
             Descanso corto
           </button>
@@ -89,7 +125,7 @@ export const PartyPanel = ({ campaignId }: { campaignId: string }) => {
             className="ps-btn ps-btn-ghost"
             onClick={() => rest('long')}
             disabled={busy || party.length === 0}
-            title="Una noche entera. Recuperan toda la vida."
+            title="Una noche entera. Recuperan toda la vida, los espacios de conjuro y la mitad de los dados de golpe."
           >
             Descanso largo
           </button>
@@ -112,6 +148,7 @@ export const PartyPanel = ({ campaignId }: { campaignId: string }) => {
             const prev = level > 1 ? xpForNextLevel(level - 1) ?? 0 : 0;
             const xpPct = next ? Math.min(100, ((xp - prev) / (next - prev)) * 100) : 100;
             const low = hpPct <= 30;
+            const dice = m.hit_dice_left ?? level;
             return (
               <li key={m.id} className={`pp-member ${cur === 0 ? 'is-down' : ''}`}>
                 {m.portrait_url ? (
@@ -133,6 +170,9 @@ export const PartyPanel = ({ campaignId }: { campaignId: string }) => {
                   </div>
                   <div className="pp-line pp-nums">
                     <span>{cur === 0 ? 'Caído' : `${cur}/${max} PV`}</span>
+                    <span>{`Dados de golpe: ${dice} de ${level}`}</span>
+                  </div>
+                  <div className="pp-line pp-nums">
                     <span>{next ? `${xp} / ${next} XP` : `${xp} XP · nivel máximo`}</span>
                   </div>
                   <div className="pp-meter pp-meter-xp" aria-label={`Experiencia hacia el nivel ${level + 1}`}>
