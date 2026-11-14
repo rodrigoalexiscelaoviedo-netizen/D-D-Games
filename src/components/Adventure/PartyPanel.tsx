@@ -141,6 +141,32 @@ export const PartyPanel = ({ campaignId }: { campaignId: string }) => {
 
       {message && <p className="pp-message" role="status">{message}</p>}
 
+      <details className="pp-help">
+        <summary>¿Para qué sirve cada dado? (guía para el DM)</summary>
+        <ul>
+          <li>
+            <strong>d20 de los enemigos:</strong> cuando un enemigo ataca, tira un d20 y le suma su bonificador. Si llega a la CA de un
+            personaje, le acierta. El combate lo tira la app; vos solo tocás “Continuar”.
+          </li>
+          <li>
+            <strong>d20 de las pruebas:</strong> una prueba de habilidad (por ejemplo, Persuasión contra dificultad 12) se resuelve con
+            un d20 más el bonificador del personaje. Si llega a la dificultad, lo logran.
+          </li>
+          <li>
+            <strong>Dados de golpe:</strong> cada personaje tiene uno por nivel. El descanso corto los gasta para curarse; el largo
+            devuelve la mitad.
+          </li>
+          <li>
+            <strong>Iniciativa:</strong> al empezar el combate, cada uno tira un d20 con su Destreza para decidir el orden de turno.
+          </li>
+          <li>
+            <strong>Tiradas de muerte:</strong> cuando alguien cae a 0 PV, en cada turno tira un d20. 10 o más es un éxito; tres éxitos
+            lo estabilizan y tres fallos lo matan.
+          </li>
+        </ul>
+        <p className="cs-hint">Ventaja y desventaja: tirás dos d20 y te quedás con el mayor o el menor. Detalle completo en el <a href="/manual" target="_blank" rel="noreferrer">manual</a>.</p>
+      </details>
+
       {party.length === 0 ? (
         <p className="ps-panel-note">Todavía no hay personajes en la campaña.</p>
       ) : (

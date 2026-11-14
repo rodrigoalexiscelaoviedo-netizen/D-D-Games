@@ -74,16 +74,19 @@ const Token = ({
   src,
   enemy,
   size = 'sm',
+  highlight = '',
 }: {
   name: string;
   src?: string | null;
   enemy?: boolean;
   size?: 'sm' | 'lg';
+  /** Resalta a quien ataca o recibe el golpe: 'is-acting', 'is-hit' o 'is-missed'. */
+  highlight?: string;
 }) => {
-  if (src) return <img className={`cs-token cs-token-${size}`} src={src} alt="" />;
+  if (src) return <img className={`cs-token cs-token-${size} ${highlight}`} src={src} alt="" />;
   const num = /(\d+)$/.exec(name.trim())?.[1] ?? '';
   return (
-    <span className={`cs-token cs-token-${size} ${enemy ? 'is-enemy' : ''}`} aria-hidden="true">
+    <span className={`cs-token cs-token-${size} ${enemy ? 'is-enemy' : ''} ${highlight}`} aria-hidden="true">
       {name.trim().charAt(0).toUpperCase()}
       {num}
     </span>
@@ -150,7 +153,7 @@ export const CombatScreen = () => {
   const [combat, setCombat] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
   const [log, setLog] = useState<string[]>([]);
-  const [lastRoll, setLastRoll] = useState<(RollResult & { actorName: string; targetName: string }) | null>(null);
+  const [lastRoll, setLastRoll] = useState<(RollResult & { actorName: string; targetName: string; dice?: string }) | null>(null);
   const [phase, setPhase] = useState<Phase>('awaiting_player');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -290,6 +293,14 @@ export const CombatScreen = () => {
 
   const effectiveAC = (p: any) => (p?.armor_class ?? 10) + (p?.temp_ac_bonus ?? 0);
 
+  // Resalta en el tablero a quien ataca y a quien recibe el golpe mientras se muestra la tirada.
+  const tokenHighlight = (name: string): string => {
+    if (!lastRoll || phase !== 'showing_roll') return '';
+    if (lastRoll.targetName === name) return lastRoll.hit ? 'is-hit' : 'is-missed';
+    if (lastRoll.actorName === name || lastRoll.actorName.startsWith(`${name} ·`)) return 'is-acting';
+    return '';
+  };
+
   // Conjuros de un personaje según la ficha (solo los que están en el catálogo SRD).
   const spellsOf = (charId?: string | null): CatalogSpell[] =>
     (charId ? spellsMap[charId] ?? [] : [])
@@ -392,7 +403,7 @@ export const CombatScreen = () => {
       current.is_player ? abilityMod(strMap[current.character_id]) : 0,
       target.status === 'dodging' ? 'disadvantage' : 'normal'
     );
-    setLastRoll({ ...result, actorName: current.name, targetName: target.name });
+    setLastRoll({ ...result, actorName: current.name, targetName: target.name, dice: `d${current.damage_dice ?? 8}` });
     setPhase('showing_roll');
 
     const outcome = targetOutcome(target, result);
@@ -487,6 +498,7 @@ export const CombatScreen = () => {
       ...result,
       actorName: `${current.name} · ${ability.name}`,
       targetName: target.name,
+      dice: `d${ability.damageDice ?? 10}`,
     });
     setPhase('showing_roll');
 
@@ -589,6 +601,7 @@ export const CombatScreen = () => {
       ...result,
       actorName: `${current.name} · ${spell.name}`,
       targetName: target.name,
+      dice: `${profile.count}d${profile.sides}`,
     });
     setPhase('showing_roll');
 
@@ -746,7 +759,7 @@ export const CombatScreen = () => {
       0,
       target.status === 'dodging' ? 'disadvantage' : 'normal'
     );
-    setLastRoll({ ...result, actorName: current.name, targetName: target.name });
+    setLastRoll({ ...result, actorName: current.name, targetName: target.name, dice: `d${current.damage_dice ?? 6}` });
     setPhase('showing_roll');
 
     const outcome = targetOutcome(target, result);
@@ -885,7 +898,13 @@ export const CombatScreen = () => {
                 }
               >
                 {occ && (
-                  <Token name={occ.name} src={occ.is_player ? portraitMap[occ.character_id] : null} enemy={!occ.is_player} size="sm" />
+                  <Token
+                    name={occ.name}
+                    src={occ.is_player ? portraitMap[occ.character_id] : null}
+                    enemy={!occ.is_player}
+                    size="sm"
+                    highlight={tokenHighlight(occ.name)}
+                  />
                 )}
               </button>
             );
@@ -1017,7 +1036,7 @@ export const CombatScreen = () => {
               </p>
               <p className="cs-roll-verdict">
                 {lastRoll.critical ? '¡Golpe crítico!' : lastRoll.fumble ? 'Pifia' : lastRoll.hit ? 'Acierta' : 'Falla'}
-                {lastRoll.hit && ` · ${lastRoll.damage} de daño`}
+                {lastRoll.hit && ` · ${lastRoll.damage} de daño${lastRoll.dice ? ` (tirada de ${lastRoll.dice})` : ''}`}
               </p>
               <p className="cs-hint">{lastRoll.explanation}</p>
             </div>
@@ -1226,6 +1245,7 @@ export const CombatScreen = () => {
                 <strong>2d4 + 2</strong>: lo que cura una poción de curación.
               </li>
             </ul>
+            <a href="/manual" target="_blank" rel="noreferrer">Ver el manual completo</a>
           </details>
           <section className="cs-panel">
             <h2>Tu grupo</h2>

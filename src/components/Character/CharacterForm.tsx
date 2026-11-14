@@ -8,6 +8,7 @@ import { AVATAR_STYLES, getAvatarUrl } from '../../lib/avatar-styles';
 import type { Character } from '../../lib/types';
 import { SpellPicker } from './SpellPicker';
 import { FULL_CASTER_CLASSES, fullCasterSlots } from '../../lib/spell-catalog';
+import { CLASS_GUIDE } from '../../content/class-guide';
 import './character-form.css';
 
 const EMPTY: Partial<Character> = {
@@ -331,7 +332,11 @@ export const CharacterForm = () => {
                     <option value="">Elegir clase</option>
                     {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
-                  <span className="cf-hint">Define cómo pelea y qué sabe hacer.</span>
+                  <span className="cf-hint">
+                    {d.character_class && CLASS_GUIDE[d.character_class]
+                      ? `${CLASS_GUIDE[d.character_class].summary} Ataca con ${CLASS_GUIDE[d.character_class].attack}. ${CLASS_GUIDE[d.character_class].spells}`
+                      : 'Define cómo pelea y qué sabe hacer.'}
+                  </span>
                 </label>
 
                 <label className="cf-field">

@@ -87,6 +87,7 @@ export const Dashboard = () => {
           <span className="brand-name">D&amp;D VTT</span>
         </div>
         <nav className="home-nav" aria-label="Accesos">
+          <button className="nav-link" onClick={() => navigate('/manual')}>Manual</button>
           <button className="nav-link" onClick={() => navigate('/bestiary')}>Bestiario</button>
           <button className="nav-link" onClick={() => navigate('/admin')}>Administración</button>
           <span className="nav-sep" aria-hidden="true" />

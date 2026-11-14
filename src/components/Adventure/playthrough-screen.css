@@ -300,3 +300,8 @@
   .ps-mode { width: 100%; }
   .ps-mode-btn { flex: 1; }
 }
+
+/* Guía de dados del DM (PartyPanel) */
+.pp-help { margin: 0.75rem 0; font-size: 0.92rem; }
+.pp-help summary { cursor: pointer; font-weight: 600; }
+.pp-help ul { margin: 0.5rem 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.35rem; }

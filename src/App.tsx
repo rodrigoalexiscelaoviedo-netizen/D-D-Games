@@ -23,6 +23,7 @@ const AdventureEditor = lazy(() => import('./components/Adventure/AdventureEdito
 const PlaythroughLobby = lazy(() => import('./components/Adventure/PlaythroughLobby').then((m) => ({ default: m.PlaythroughLobby })));
 const BestiaryScreen = lazy(() => import('./components/Bestiario/BestiaryScreen').then((m) => ({ default: m.BestiaryScreen })));
 const AdminDashboard = lazy(() => import('./components/Admin/AdminDashboard').then((m) => ({ default: m.AdminDashboard })));
+const Manual = lazy(() => import('./pages/Manual').then((m) => ({ default: m.Manual })));
 
 const guard = (el: ReactNode) => <ProtectedRoute>{el}</ProtectedRoute>;
 
@@ -60,6 +61,7 @@ export default function App() {
             <Route path="/campaign/:campaignId/play/:playthroughId" element={guard(<PlaythroughScreen />)} />
             <Route path="/bestiary" element={guard(<BestiaryScreen />)} />
             <Route path="/admin" element={guard(<AdminDashboard />)} />
+            <Route path="/manual" element={guard(<Manual />)} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Suspense>
