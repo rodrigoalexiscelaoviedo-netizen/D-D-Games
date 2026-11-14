@@ -169,6 +169,7 @@ export const CombatScreen = () => {
   const [spellsMap, setSpellsMap] = useState<Record<string, SpellEntry[]>>({});
   const [subclassMap, setSubclassMap] = useState<Record<string, string | null>>({});
   const [levelMap, setLevelMap] = useState<Record<string, number>>({});
+  const [chaMap, setChaMap] = useState<Record<string, number>>({});
   const [maneuverNext, setManeuverNext] = useState(false);
   const [pickedSpell, setPickedSpell] = useState<string | null>(null);
   const [spellMenu, setSpellMenu] = useState(false);
@@ -293,6 +294,7 @@ export const CombatScreen = () => {
       setSpellSlotsMap(slots);
       setSubclassMap(Object.fromEntries((chars || []).map((c) => [c.id, c.subclass ?? null])));
       setLevelMap(Object.fromEntries((chars || []).map((c) => [c.id, c.level ?? 1])));
+      setChaMap(Object.fromEntries((chars || []).map((c) => [c.id, c.cha ?? 10])));
       // Maestro de batalla: al empezar el combate cada uno recibe sus dados de superioridad.
       let changed = false;
       for (const part of (p || []) as any[]) {
@@ -471,12 +473,22 @@ export const CombatScreen = () => {
 
     const weapon = current.is_player ? weaponDiceOf(current.character_id) : null;
     const dmgBonus = current.is_player ? abilityMod(strMap[current.character_id]) : 0;
+    // Asesino (Pícaro): en la primera ronda ataca con ventaja (aproximación: no sabemos quién actuó antes).
+    const assassinEdge =
+      current.is_player && subclassMap[current.character_id] === 'Asesino' && (combat?.round ?? 1) === 1;
+    const dodging = target.status === 'dodging';
+    const rollMode = dodging && !assassinEdge ? 'disadvantage' : assassinEdge && !dodging ? 'advantage' : 'normal';
+    // Juramento de Devoción (Paladín): el arma sagrada suma el modificador de Carisma al ataque (siempre activa).
+    const devotionBonus =
+      current.is_player && subclassMap[current.character_id] === 'Juramento de Devoción'
+        ? Math.max(1, abilityMod(chaMap[current.character_id] ?? 10))
+        : 0;
     const result = resolveAttack(
-      current.attack_bonus ?? 2,
+      (current.attack_bonus ?? 2) + devotionBonus,
       effectiveAC(target),
       weapon?.sides ?? current.damage_dice ?? 8,
       dmgBonus,
-      target.status === 'dodging' ? 'disadvantage' : 'normal',
+      rollMode,
       // Campeón del Guerrero: crítico con 19 o 20.
       current.is_player && subclassMap[current.character_id] === 'Campeón' ? 19 : 20
     );
@@ -490,6 +502,25 @@ export const CombatScreen = () => {
     // Golpe de maniobra: gasta un dado de superioridad y lo suma al daño si acierta.
     let maneuverNote = '';
     const dice: number | null | undefined = (current as any).superiority_dice;
+    // Presa del cazador (Explorador, Cazador): +1d8 si el objetivo ya está herido (aproximación: sin límite por turno).
+    let preyNote = '';
+    if (current.is_player && subclassMap[current.character_id] === 'Cazador' && result.hit && target.hp_current < target.hp_max) {
+      const extra = roll(8);
+      result.damage += extra;
+      preyNote = ` Presa del cazador: +${extra} de daño.`;
+    }
+
+    // Golpe divino (Dominio de la Guerra, nivel 8): daño radiante extra en cada golpe con arma.
+    let divineNote = '';
+    const clericLevel = levelMap[current.character_id] ?? 1;
+    if (current.is_player && subclassMap[current.character_id] === 'Dominio de la Guerra' && clericLevel >= 8 && result.hit) {
+      const diceCount = (clericLevel >= 14 ? 2 : 1) * (result.critical ? 2 : 1);
+      let extra = 0;
+      for (let i = 0; i < diceCount; i++) extra += roll(8);
+      result.damage += extra;
+      divineNote = ` Golpe divino: +${extra} de daño radiante.`;
+    }
+
     // 5e: el dado se gasta al elegir la maniobra, acierte o no. Solo suma daño si el golpe acierta.
     if (maneuver && typeof dice === 'number' && dice > 0) {
       const die = superiorityDieFor(levelMap[current.character_id] ?? 3);
@@ -513,7 +544,7 @@ export const CombatScreen = () => {
 
     const outcome = targetOutcome(target, result);
     const newHp = outcome.hp;
-    const line = describeAttack(current.name, target.name, effectiveAC(target), result, newHp) + maneuverNote;
+    const line = describeAttack(current.name, target.name, effectiveAC(target), result, newHp) + maneuverNote + divineNote + preyNote;
 
     if (result.hit) {
       addAnimation('damage', result.damage, window.innerWidth / 2, window.innerHeight / 2);
@@ -561,7 +592,9 @@ export const CombatScreen = () => {
     }
 
     if (ability.kind === 'heal') {
-      const healed = roll(ability.healDice ?? 8) + 2;
+      // Dominio de la Vida (Clérigo): cada curación suma 2 + nivel del conjuro. Curar heridas es de nivel 1.
+      const lifeBonus = subclassMap[current.character_id] === 'Dominio de la Vida' ? 3 : 0;
+      const healed = roll(ability.healDice ?? 8) + 2 + lifeBonus;
       audioManager.playEffect('heal');
       const newHp = Math.min(current.hp_max, current.hp_current + healed);
       addAnimation('heal', healed, window.innerWidth / 2, window.innerHeight / 2);
@@ -638,7 +671,7 @@ export const CombatScreen = () => {
     const spell = SPELL_CATALOG.find((s) => s.slug === slug);
     if (busy || !current || !current.character_id || !spell) return;
     const profile = spellCombatProfile(spell);
-    if (profile.mode === 'attack' && !target) return;
+    if ((profile.mode === 'attack' || profile.mode === 'save') && !target) return;
     if (profile.mode === 'attack' && profile.ranged === false && distance(current, target) > MELEE_REACH) {
       setPickingTarget(null);
       setCloseError('Está lejos. Este conjuro necesita que estés al lado del enemigo.');
@@ -674,7 +707,9 @@ export const CombatScreen = () => {
     if (profile.mode === 'heal') {
       let healed = 0;
       for (let i = 0; i < profile.count; i++) healed += roll(profile.sides);
-      healed = Math.max(1, healed + abilityMod(strMap[current.character_id]));
+      // Dominio de la Vida (Clérigo): cada curación suma 2 + nivel del conjuro.
+      const lifeBonus = subclassMap[current.character_id] === 'Dominio de la Vida' && spell.level >= 1 ? 2 + spell.level : 0;
+      healed = Math.max(1, healed + abilityMod(strMap[current.character_id]) + lifeBonus);
       const newHp = Math.min(current.hp_max, current.hp_current + healed);
       audioManager.playEffect('heal');
       addAnimation('heal', healed, window.innerWidth / 2, window.innerHeight / 2);
@@ -682,6 +717,31 @@ export const CombatScreen = () => {
       await commitTurn({
         newLog: [...log, `${castLine} · recupera ${healed} PV (${newHp}/${current.hp_max})`],
       });
+      setBusy(false);
+      return;
+    }
+
+    if (profile.mode === 'save' && target && profile.save) {
+      // Salvación: el objetivo tira d20 + su modificador contra la CD del lanzador (8 + bono de ataque).
+      // Si no hay bono de salvación guardado para el enemigo, se usa 0 (solo Destreza usa el modificador de la ficha).
+      const dc = 8 + (current.attack_bonus ?? 2);
+      const saveMod = profile.save === 'dex' ? abilityMod(target.dexterity ?? 10) : 0;
+      const saveRoll = roll(20);
+      const saveTotal = saveRoll + saveMod;
+      const failed = saveTotal < dc;
+      let dmg = 0;
+      for (let i = 0; i < profile.count; i++) dmg += roll(profile.sides);
+      dmg = failed ? dmg : profile.half ? Math.floor(dmg / 2) : 0;
+      const outcome = targetOutcome(target, { hit: dmg > 0, damage: dmg, critical: false });
+      const abilityName: Record<string, string> = {
+        str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma',
+      };
+      const line =
+        `${castLine} sobre ${target.name}. Salvación de ${abilityName[profile.save]}: ${saveTotal} contra CD ${dc}, ` +
+        `${failed ? 'falla' : 'supera'}. ${dmg} de daño${dmg > 0 ? ` (${target.name}: ${outcome.hp}/${target.hp_max} PV)` : ''}.`;
+      if (dmg > 0) addAnimation('damage', dmg, window.innerWidth / 2, window.innerHeight / 2);
+      else addAnimation('miss', undefined, window.innerWidth / 2, window.innerHeight / 2);
+      await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: outcome.hp, targetStatus: outcome.status });
       setBusy(false);
       return;
     }
@@ -735,7 +795,8 @@ export const CombatScreen = () => {
 
   // Al elegir un conjuro de ataque se pregunta a quién apuntar (si hay un solo enemigo, va directo).
   const castSpell = (spell: CatalogSpell) => {
-    if (spellCombatProfile(spell).mode === 'attack') {
+    const castMode = spellCombatProfile(spell).mode;
+    if (castMode === 'attack' || castMode === 'save') {
       if (aliveEnemies.length === 1) return doSpell(spell.slug, aliveEnemies[0]);
       setPickedSpell(spell.slug);
       setSpellMenu(false);
@@ -1299,7 +1360,8 @@ export const CombatScreen = () => {
                         const left = s.level > 0 ? spellSlotsMap[current.character_id]?.[String(s.level)] ?? 0 : null;
                         const noSlot = left !== null && left <= 0;
                         const mode = spellCombatProfile(s).mode;
-                        const effect = mode === 'attack' ? 'ataque' : mode === 'heal' ? 'cura' : 'narrado';
+                        const effect =
+                          mode === 'attack' ? 'ataque' : mode === 'heal' ? 'cura' : mode === 'save' ? 'salvación' : 'narrado';
                         return (
                           <li key={s.slug}>
                             <button className="cs-action" disabled={busy || noSlot} onClick={() => castSpell(s)}>

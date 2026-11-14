@@ -123,10 +123,16 @@ export function fullCasterSlots(characterLevel: number): Record<string, number> 
   return out;
 }
 
-export type SpellCombatMode = 'attack' | 'heal' | 'narrative';
+export type SpellCombatMode = 'attack' | 'heal' | 'save' | 'narrative';
+
+export type SaveAbility = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
 
 export interface SpellCombatProfile {
-  /** attack: tirada de ataque y daño. heal: cura a quien lanza. narrative: sin cálculo automático. */
+  /**
+   * attack: tirada de ataque y daño. heal: cura a quien lanza.
+   * save: el objetivo tira salvación contra la CD del lanzador; daño completo si falla.
+   * narrative: sin cálculo automático.
+   */
   mode: SpellCombatMode;
   /** Cantidad de dados de la primera expresión de dados de la descripción. */
   count: number;
@@ -134,12 +140,25 @@ export interface SpellCombatProfile {
   sides: number;
   /** Alcance a distancia (no solo "Touch" o "Self"). */
   ranged: boolean;
+  /** Atributo de la tirada de salvación (solo en mode 'save'). */
+  save?: SaveAbility;
+  /** Si acertar la salvación reduce el daño a la mitad (solo en mode 'save'). */
+  half?: boolean;
 }
+
+const SAVE_ABILITY: Record<string, SaveAbility> = {
+  strength: 'str',
+  dexterity: 'dex',
+  constitution: 'con',
+  intelligence: 'int',
+  wisdom: 'wis',
+  charisma: 'cha',
+};
 
 /**
  * Interpreta un conjuro para el combate usando su descripción en inglés del SRD.
  * Es una aproximación: solo toma la primera expresión de dados y no maneja niveles superiores
- * ni tiradas de salvación (esos quedan como 'narrative').
+ * ni efectos fuera del daño (esos quedan como 'narrative').
  */
 export function spellCombatProfile(spell: CatalogSpell): SpellCombatProfile {
   const m = /(\d+)d(\d+)/i.exec(spell.desc);
@@ -154,6 +173,14 @@ export function spellCombatProfile(spell: CatalogSpell): SpellCombatProfile {
   }
   if (hasDice && !usesSave && !/damage/i.test(spell.desc) && /regains?|hit points/i.test(spell.desc)) {
     return { mode: 'heal', count, sides, ranged };
+  }
+  if (hasDice && usesSave && /damage/i.test(spell.desc)) {
+    const ab = /(strength|dexterity|constitution|intelligence|wisdom|charisma) saving throw/i.exec(spell.desc);
+    const save = ab ? SAVE_ABILITY[ab[1].toLowerCase()] : undefined;
+    if (save) {
+      const half = /half as much damage/i.test(spell.desc);
+      return { mode: 'save', count, sides, ranged, save, half };
+    }
   }
   return { mode: 'narrative', count, sides, ranged };
 }
