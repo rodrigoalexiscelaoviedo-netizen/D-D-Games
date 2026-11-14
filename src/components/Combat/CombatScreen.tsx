@@ -7,6 +7,7 @@ import {
   parseDying, canAct, targetOutcome, deathSave, attackAbilityFor,
 } from '../../lib/combat-engine';
 import { CombatAnimation } from './CombatAnimations';
+import { Token, describeAttack, RollingDie } from './CombatParts';
 import type { RollResult } from '../../lib/combat-engine';
 import './combat-screen.css';
 import { audioManager } from '../../lib/audio';
@@ -69,81 +70,6 @@ const stepToward = (
 };
 
 // Ficha de cada participante: retrato si lo tiene; si no, inicial (y número del enemigo: "K2").
-const Token = ({
-  name,
-  src,
-  enemy,
-  size = 'sm',
-  highlight = '',
-}: {
-  name: string;
-  src?: string | null;
-  enemy?: boolean;
-  size?: 'sm' | 'lg';
-  /** Resalta a quien ataca o recibe el golpe: 'is-acting', 'is-hit' o 'is-missed'. */
-  highlight?: string;
-}) => {
-  if (src) return <img className={`cs-token cs-token-${size} ${highlight}`} src={src} alt="" />;
-  const num = /(\d+)$/.exec(name.trim())?.[1] ?? '';
-  return (
-    <span className={`cs-token cs-token-${size} ${enemy ? 'is-enemy' : ''} ${highlight}`} aria-hidden="true">
-      {name.trim().charAt(0).toUpperCase()}
-      {num}
-    </span>
-  );
-};
-
-// Una frase legible para el registro del combate (lo leen DM y jugadores).
-const describeAttack = (
-  actor: string,
-  target: string,
-  ac: number,
-  result: RollResult,
-  newHp: number,
-  abilityName?: string
-): string => {
-  const numbers = `(${result.total} contra CA ${ac})`;
-  if (!result.hit) {
-    return abilityName
-      ? `${actor} usa ${abilityName} contra ${target} y falla ${numbers}.`
-      : `${actor} ataca a ${target} y falla ${numbers}.`;
-  }
-  const how = abilityName ? `${actor} usa ${abilityName} y golpea a ${target}` : `${actor} golpea a ${target}`;
-  const crit = result.critical ? ' con un crítico' : '';
-  const down = newHp <= 0 ? ` ${target} cae.` : '';
-  return `${how}${crit}: ${result.damage} de daño ${numbers}.${down}`;
-};
-
-// Dado que gira unos instantes antes de caer en el resultado real.
-// Con "reducir movimiento" activado muestra el número directamente.
-const RollingDie = ({ value }: { value: number }) => {
-  const reduce =
-    typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const [shown, setShown] = useState(reduce ? value : 1 + Math.floor(Math.random() * 20));
-  const [settled, setSettled] = useState(Boolean(reduce));
-
-  useEffect(() => {
-    if (reduce) return;
-    let ticks = 0;
-    const id = window.setInterval(() => {
-      ticks += 1;
-      if (ticks >= 10) {
-        window.clearInterval(id);
-        setShown(value);
-        setSettled(true);
-        return;
-      }
-      setShown(1 + Math.floor(Math.random() * 20));
-    }, 50);
-    return () => window.clearInterval(id);
-  }, [value, reduce]);
-
-  return (
-    <div className={`cs-die ${settled ? 'is-settled' : 'is-rolling'}`} aria-label={`Dado: ${value}`}>
-      {shown}
-    </div>
-  );
-};
 type PickingFor = 'attack' | 'ability' | 'spell' | null;
 
 // Maestro de batalla (5e): cantidad y tamaño de los dados de superioridad según el nivel.
@@ -346,6 +272,26 @@ export const CombatScreen = () => {
   const enemies = participants.filter((p) => !p.is_player);
   const allies = participants.filter((p) => p.is_player);
   const aliveEnemies = enemies.filter((e) => e.hp_current > 0 && !e.has_fled);
+
+  // Aviso de turno: si el jugador está mirando otra cosa, la pestaña y el sonido le avisan cuando le toca.
+  // Va antes de cualquier 'return' temprano del componente: los hooks tienen que estar siempre en el mismo orden.
+  const myTurnNow = !!current?.character_id && current.character_id === myCharacterId;
+  useEffect(() => {
+    if (!myTurnNow || !combat) return;
+    const previousTitle = document.title;
+    document.title = '¡Te toca! · Combate';
+    audioManager.playEffect('attack');
+    const restore = () => {
+      document.title = previousTitle;
+    };
+    window.addEventListener('focus', restore, { once: true });
+    return () => {
+      window.removeEventListener('focus', restore);
+      restore();
+    };
+    // Solo al cambiar de turno: 'turnKey' identifica cada turno.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myTurnNow, turnKey]);
   // Los que caen también son blanco: un golpe más los acerca a la muerte.
   const aliveAllies = allies.filter((a) => canAct(a));
 
@@ -1001,25 +947,6 @@ export const CombatScreen = () => {
   // El director controla todo (turnos enemigos y cualquier personaje). Un jugador actúa solo con su personaje, cuando le toca.
   const isDirector = myRole === 'dm';
   const canActNow = isDirector || (!!current?.character_id && current.character_id === myCharacterId);
-
-  // Aviso de turno: si el jugador está mirando otra cosa, la pestaña y el sonido le avisan cuando le toca.
-  const myTurnNow = !!current?.character_id && current.character_id === myCharacterId;
-  useEffect(() => {
-    if (!myTurnNow || !combat) return;
-    const previousTitle = document.title;
-    document.title = '¡Te toca! · Combate';
-    audioManager.playEffect('attack');
-    const restore = () => {
-      document.title = previousTitle;
-    };
-    window.addEventListener('focus', restore, { once: true });
-    return () => {
-      window.removeEventListener('focus', restore);
-      restore();
-    };
-    // Solo al cambiar de turno: 'turnKey' identifica cada turno.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myTurnNow, turnKey]);
 
   const rowStatus = (p: any) => {
     if (p.has_fled) return 'Huyó';

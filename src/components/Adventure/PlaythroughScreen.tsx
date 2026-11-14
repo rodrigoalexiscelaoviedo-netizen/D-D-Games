@@ -51,7 +51,8 @@ export const PlaythroughScreen = () => {
   const [adventureOrigin, setAdventureOrigin] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [okNotice, setOkNotice] = useState<string | null>(null);
-  const [showSheet, setShowSheet] = useState(false);
+  // La ficha del jugador empieza abierta: es lo primero que necesita al retomar la partida.
+  const [showSheet, setShowSheet] = useState(true);
 
   const module = findModuleByOrigin(adventureOrigin);
   const moduleScene = module && scene ? module.scenes.find((s) => s.order === scene.scene_order) : undefined;
