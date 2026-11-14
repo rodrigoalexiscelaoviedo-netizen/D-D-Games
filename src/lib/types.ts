@@ -49,6 +49,8 @@ export interface SpellEntry {
   name: string;
   level?: number;
   prepared?: boolean;
+  /** Identificador del conjuro en el catálogo SRD (ausente en entradas de texto libre). */
+  slug?: string;
 }
 
 export interface Archetype {

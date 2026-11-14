@@ -12,6 +12,8 @@ import './combat-screen.css';
 import { audioManager } from '../../lib/audio';
 import { SoundToggle } from '../UI/SoundToggle';
 import { useAuth } from '../../hooks/useAuth';
+import { SPELL_CATALOG, spellCombatProfile, type CatalogSpell } from '../../lib/spell-catalog';
+import type { SpellEntry } from '../../lib/types';
 
 type Phase = 'awaiting_player' | 'awaiting_dm_continue' | 'showing_roll' | 'finished';
 
@@ -139,7 +141,7 @@ const RollingDie = ({ value }: { value: number }) => {
     </div>
   );
 };
-type PickingFor = 'attack' | 'ability' | null;
+type PickingFor = 'attack' | 'ability' | 'spell' | null;
 
 export const CombatScreen = () => {
   const { campaignId, combatId } = useParams();
@@ -157,6 +159,9 @@ export const CombatScreen = () => {
   const [strMap, setStrMap] = useState<Record<string, number>>({});
   const [inventoryMap, setInventoryMap] = useState<Record<string, any[]>>({});
   const [spellSlotsMap, setSpellSlotsMap] = useState<Record<string, Record<string, number>>>({});
+  const [spellsMap, setSpellsMap] = useState<Record<string, SpellEntry[]>>({});
+  const [pickedSpell, setPickedSpell] = useState<string | null>(null);
+  const [spellMenu, setSpellMenu] = useState(false);
   // Rol en esta partida y personaje propio. Define qué botones ve cada persona.
   const { user } = useAuth();
   const [myRole, setMyRole] = useState<'dm' | 'player' | null>(null);
@@ -230,7 +235,7 @@ export const CombatScreen = () => {
     if (charIds.length > 0) {
       const { data: chars } = await supabase
         .from('characters')
-        .select('id, character_class, str, dex, int, wis, cha, portrait_url, inventory, spell_slots, player_user_id')
+        .select('id, character_class, str, dex, int, wis, cha, portrait_url, inventory, spell_slots, spells, player_user_id')
         .in('id', charIds);
       setMyCharacterId((chars || []).find((ch) => ch.player_user_id === user?.id)?.id ?? null);
       const inv: Record<string, any[]> = {};
@@ -241,6 +246,9 @@ export const CombatScreen = () => {
       });
       setInventoryMap(inv);
       setSpellSlotsMap(slots);
+      setSpellsMap(
+        Object.fromEntries((chars || []).map((c) => [c.id, Array.isArray(c.spells) ? (c.spells as SpellEntry[]) : []])),
+      );
       const map: Record<string, string> = {};
       const strengths: Record<string, number> = {};
       const portraits: Record<string, string | null> = {};
@@ -281,6 +289,12 @@ export const CombatScreen = () => {
   const aliveAllies = allies.filter((a) => canAct(a));
 
   const effectiveAC = (p: any) => (p?.armor_class ?? 10) + (p?.temp_ac_bonus ?? 0);
+
+  // Conjuros de un personaje según la ficha (solo los que están en el catálogo SRD).
+  const spellsOf = (charId?: string | null): CatalogSpell[] =>
+    (charId ? spellsMap[charId] ?? [] : [])
+      .map((e) => SPELL_CATALOG.find((s) => s.slug === e.slug))
+      .filter((s): s is CatalogSpell => Boolean(s));
 
   const addAnimation = (type: 'attack' | 'damage' | 'heal' | 'miss', value: number | undefined, x: number, y: number) => {
     const animId = `${Date.now()}-${Math.random()}`;
@@ -492,6 +506,117 @@ export const CombatScreen = () => {
       await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: newHp, targetStatus: outcome.status });
       setBusy(false);
     }, 2200);
+  };
+
+  // Lanzar un conjuro elegido en la ficha. Es la acción del turno (no usa la habilidad de clase).
+  // Los trucos no gastan espacio; los conjuros de nivel sí gastan un espacio de ese nivel.
+  const doSpell = async (slug: string, target?: any) => {
+    const spell = SPELL_CATALOG.find((s) => s.slug === slug);
+    if (busy || !current || !current.character_id || !spell) return;
+    const profile = spellCombatProfile(spell);
+    if (profile.mode === 'attack' && !target) return;
+    if (profile.mode === 'attack' && profile.ranged === false && distance(current, target) > MELEE_REACH) {
+      setPickingTarget(null);
+      setCloseError('Está lejos. Este conjuro necesita que estés al lado del enemigo.');
+      return;
+    }
+
+    const key = String(spell.level);
+    const slotsNow = spellSlotsMap[current.character_id] ?? {};
+    if (spell.level > 0) {
+      const left = slotsNow[key];
+      if (typeof left !== 'number' || left <= 0) {
+        setPickingTarget(null);
+        setCloseError(`No te quedan espacios de nivel ${spell.level} para ${spell.name}.`);
+        return;
+      }
+    }
+
+    setBusy(true);
+    setPickingTarget(null);
+    setPickedSpell(null);
+    setSpellMenu(false);
+
+    if (spell.level > 0) {
+      // El máximo de nivel 1 se guarda la primera vez que se gasta (lo usa el descanso largo).
+      const max1 = typeof slotsNow['max1'] === 'number' ? slotsNow['max1'] : slotsNow['1'];
+      const next = { ...slotsNow, [key]: Math.max(0, (slotsNow[key] ?? 0) - 1), max1 };
+      await supabase.from('characters').update({ spell_slots: next }).eq('id', current.character_id);
+      setSpellSlotsMap((m) => ({ ...m, [current.character_id]: next }));
+    }
+
+    const castLine = `${current.name} lanza ${spell.name}`;
+
+    if (profile.mode === 'heal') {
+      let healed = 0;
+      for (let i = 0; i < profile.count; i++) healed += roll(profile.sides);
+      healed = Math.max(1, healed + abilityMod(strMap[current.character_id]));
+      const newHp = Math.min(current.hp_max, current.hp_current + healed);
+      audioManager.playEffect('heal');
+      addAnimation('heal', healed, window.innerWidth / 2, window.innerHeight / 2);
+      await supabase.from('combat_participants').update({ hp_current: newHp }).eq('id', current.id);
+      await commitTurn({
+        newLog: [...log, `${castLine} · recupera ${healed} PV (${newHp}/${current.hp_max})`],
+      });
+      setBusy(false);
+      return;
+    }
+
+    if (profile.mode === 'narrative' || !target) {
+      await commitTurn({
+        newLog: [...log, `${castLine}. Su efecto lo narra el DM (no tiene cálculo automático).`],
+      });
+      setBusy(false);
+      return;
+    }
+
+    // Ataque de conjuro: la tirada usa el bono de ataque de la ficha (mismo atributo que el conjuro).
+    const result = resolveAttack(
+      current.attack_bonus ?? 2,
+      effectiveAC(target),
+      profile.sides,
+      0,
+      target.status === 'dodging' ? 'disadvantage' : 'normal',
+    );
+    if (result.hit && profile.count > 1) {
+      // Varios dados de daño: se tiran todos (en un crítico, el doble, como en 5e).
+      const dice = profile.count * (result.critical ? 2 : 1);
+      let dmg = 0;
+      for (let i = 0; i < dice; i++) dmg += roll(profile.sides);
+      result.damage = Math.max(1, dmg);
+    }
+    setLastRoll({
+      ...result,
+      actorName: `${current.name} · ${spell.name}`,
+      targetName: target.name,
+    });
+    setPhase('showing_roll');
+
+    const outcome = targetOutcome(target, result);
+    const newHp = outcome.hp;
+    const line = describeAttack(current.name, target.name, effectiveAC(target), result, newHp, spell.name);
+
+    if (result.hit) {
+      addAnimation('damage', result.damage, window.innerWidth / 2, window.innerHeight / 2);
+    } else {
+      addAnimation('miss', undefined, window.innerWidth / 2, window.innerHeight / 2);
+    }
+
+    setTimeout(async () => {
+      await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: newHp, targetStatus: outcome.status });
+      setBusy(false);
+    }, 2200);
+  };
+
+  // Al elegir un conjuro de ataque se pregunta a quién apuntar (si hay un solo enemigo, va directo).
+  const castSpell = (spell: CatalogSpell) => {
+    if (spellCombatProfile(spell).mode === 'attack') {
+      if (aliveEnemies.length === 1) return doSpell(spell.slug, aliveEnemies[0]);
+      setPickedSpell(spell.slug);
+      setSpellMenu(false);
+      return setPickingTarget('spell');
+    }
+    return doSpell(spell.slug);
   };
 
   const doFlee = async () => {
@@ -999,6 +1124,40 @@ export const CombatScreen = () => {
                     </span>
                   </button>
 
+                  {current?.character_id && spellsOf(current.character_id).length > 0 && (
+                    <button className="cs-action" disabled={busy} onClick={() => setSpellMenu((v) => !v)}>
+                      <span className="cs-action-title">Lanzar conjuro</span>
+                      <span className="cs-action-sub">
+                        {spellMenu
+                          ? 'Cerrá la lista.'
+                          : `Tenés ${spellsOf(current.character_id).length} conjuros elegidos en la ficha.`}
+                      </span>
+                    </button>
+                  )}
+
+                  {current?.character_id && spellMenu && (
+                    <ul className="cs-spell-list" aria-label="Conjuros">
+                      {spellsOf(current.character_id).map((s) => {
+                        const left = s.level > 0 ? spellSlotsMap[current.character_id]?.[String(s.level)] ?? 0 : null;
+                        const noSlot = left !== null && left <= 0;
+                        const mode = spellCombatProfile(s).mode;
+                        const effect = mode === 'attack' ? 'ataque' : mode === 'heal' ? 'cura' : 'narrado';
+                        return (
+                          <li key={s.slug}>
+                            <button className="cs-action" disabled={busy || noSlot} onClick={() => castSpell(s)}>
+                              <span className="cs-action-title">{s.name}</span>
+                              <span className="cs-action-sub">
+                                {s.level === 0
+                                  ? `Truco · ${effect}`
+                                  : `Nivel ${s.level} · ${noSlot ? 'sin espacios' : `quedan ${left}`} · ${effect}`}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+
                   <button className="cs-action" disabled={busy} onClick={doFlee}>
                     <span className="cs-action-title">Huir</span>
                     <span className="cs-action-sub">Regla casera: tirá Destreza. Con 12 o más, escapa del combate.</span>
@@ -1025,7 +1184,13 @@ export const CombatScreen = () => {
                 <button
                   key={e.id}
                   className="cs-action cs-action-main"
-                  onClick={() => (pickingTarget === 'attack' ? doAttack(e) : doAbility(e))}
+                  onClick={() =>
+                    pickingTarget === 'attack'
+                      ? doAttack(e)
+                      : pickingTarget === 'spell' && pickedSpell
+                        ? doSpell(pickedSpell, e)
+                        : doAbility(e)
+                  }
                 >
                   <span className="cs-action-title">{e.name}</span>
                   <span className="cs-action-sub">
@@ -1041,6 +1206,27 @@ export const CombatScreen = () => {
         </section>
 
         <aside className="cs-side" aria-label="Estado del combate">
+          <details className="cs-help">
+            <summary>¿Qué significa cada dado?</summary>
+            <ul>
+              <li>
+                <strong>d20</strong>: se tira para atacar, hacer pruebas, salvarse, la iniciativa y las tiradas de muerte.
+                Le sumás tu bonificador. Si llega a la CA del enemigo (su defensa), acertás.
+              </li>
+              <li>
+                <strong>Dados de daño</strong> (d8, d10…): salen del arma o conjuro. Solo se tiran si acertás.
+              </li>
+              <li>
+                <strong>Ventaja / desventaja</strong>: tirás dos d20 y te quedás con el mayor (ventaja) o el menor (desventaja).
+              </li>
+              <li>
+                <strong>Dados de golpe</strong>: en un descanso corto, cada uno cura tu tirada + Constitución.
+              </li>
+              <li>
+                <strong>2d4 + 2</strong>: lo que cura una poción de curación.
+              </li>
+            </ul>
+          </details>
           <section className="cs-panel">
             <h2>Tu grupo</h2>
             <ul className="cs-roster">{renderRoster(allies)}</ul>

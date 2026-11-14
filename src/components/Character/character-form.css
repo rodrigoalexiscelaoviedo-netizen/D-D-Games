@@ -128,3 +128,12 @@
   .cf-footer { flex-direction: column-reverse; align-items: stretch; }
   .cf-footer .cf-btn { width: 100%; }
 }
+
+/* Selector de conjuros (SpellPicker) */
+.spell-picker-controls { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; margin-bottom: 0.5rem; }
+.spell-picker-other { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-bottom: 0.5rem; }
+.spell-picker-list { list-style: none; margin: 0; padding: 0; max-height: 26rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.35rem; }
+.spell-picker-item { border-bottom: 1px solid var(--border-gold, #3a3228); padding-bottom: 0.35rem; }
+.spell-picker-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.spell-picker-detail { margin-top: 0.4rem; font-size: 0.92rem; }
+.spell-picker-detail p { margin: 0.25rem 0; }

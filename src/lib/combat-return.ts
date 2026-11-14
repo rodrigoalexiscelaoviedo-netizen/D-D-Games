@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { abilityMod } from './combat-engine';
 import { findModuleScene } from '../content/modules';
+import { FULL_CASTER_CLASSES, rescaleSlots } from './spell-catalog';
 
 /**
  * Botín que el módulo define para la escena. Se muestra al grupo para que lo reparta
@@ -69,7 +70,7 @@ async function applyAftermath(
 
     const { data: chars } = await supabase
       .from('characters')
-      .select('id, character_name, character_class, level, xp, hp_current, hp_max, con')
+      .select('id, character_name, character_class, level, xp, hp_current, hp_max, con, spell_slots')
       .eq('campaign_id', pt.campaign_id);
     const party = chars ?? [];
     if (party.length === 0) return result;
@@ -127,7 +128,7 @@ async function applyAftermath(
 
       const xp = (c.xp ?? 0) + result.xpEach;
       const newLevel = Math.max(level, levelForXp(xp));
-      const patch: Record<string, number> = { hp_current: Math.min(hp, hpMax), xp };
+      const patch: Record<string, unknown> = { hp_current: Math.min(hp, hpMax), xp };
 
       if (newLevel > level) {
         const perLevel = Math.max(1, (HIT_DIE_AVERAGE[c.character_class ?? ''] ?? 5) + abilityMod(c.con));
@@ -137,6 +138,9 @@ async function applyAftermath(
         patch.hp_max = hpMax;
         patch.hp_current = Math.min(hp + hpGain, hpMax);
         patch.proficiency_bonus = proficiencyFor(newLevel);
+        if (FULL_CASTER_CLASSES.has(c.character_class ?? '')) {
+          patch.spell_slots = rescaleSlots(c.spell_slots as Record<string, number> | null, level, newLevel);
+        }
         result.levelUps.push({ name: c.character_name, level: newLevel, hpGain });
       }
 

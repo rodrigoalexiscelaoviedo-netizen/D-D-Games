@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { xpForNextLevel } from '../../lib/combat-return';
 import { abilityMod, roll } from '../../lib/combat-engine';
+import { FULL_CASTER_CLASSES, fullCasterSlots } from '../../lib/spell-catalog';
 
 interface Member {
   id: string;
@@ -67,7 +68,13 @@ export const PartyPanel = ({ campaignId }: { campaignId: string }) => {
         patch.hp_current = max;
         patch.hit_dice_left = Math.min(level, diceLeft + Math.max(1, Math.floor(level / 2)));
         const slots = m.spell_slots ?? {};
-        if (typeof slots['max1'] === 'number') patch.spell_slots = { ...slots, '1': slots['max1'] };
+        if (FULL_CASTER_CLASSES.has(m.character_class ?? '')) {
+          // Lanzador completo: vuelven todos los espacios de su nivel.
+          const maxSlots = fullCasterSlots(level);
+          patch.spell_slots = { ...maxSlots, max1: maxSlots['1'] };
+        } else if (typeof slots['max1'] === 'number') {
+          patch.spell_slots = { ...slots, '1': slots['max1'] };
+        }
         lines.push(`${m.character_name}: vida completa.`);
       } else {
         const die = hitDieOf(m.character_class);

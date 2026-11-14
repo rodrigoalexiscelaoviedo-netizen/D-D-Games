@@ -238,3 +238,11 @@
   .cs-log { margin: 0 16px 24px; }
   .cs-turn h2 { font-size: 24px; }
 }
+
+/* Lista de conjuros en combate */
+.cs-spell-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+
+/* Guía de dados en combate */
+.cs-help { margin-bottom: 0.75rem; font-size: 0.92rem; }
+.cs-help summary { cursor: pointer; font-weight: 600; }
+.cs-help ul { margin: 0.5rem 0 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.35rem; }

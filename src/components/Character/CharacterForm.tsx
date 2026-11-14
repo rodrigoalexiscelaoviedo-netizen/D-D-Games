@@ -6,6 +6,8 @@ import { fmtMod, applyRacialBonuses, getRacialBonuses } from '../../lib/dnd';
 import { CLASS_STAT_ARRAYS, SKILLS_5E } from '../../lib/d5e-data';
 import { AVATAR_STYLES, getAvatarUrl } from '../../lib/avatar-styles';
 import type { Character } from '../../lib/types';
+import { SpellPicker } from './SpellPicker';
+import { FULL_CASTER_CLASSES, fullCasterSlots } from '../../lib/spell-catalog';
 import './character-form.css';
 
 const EMPTY: Partial<Character> = {
@@ -132,7 +134,13 @@ export const CharacterForm = () => {
       if (d.xp != null) payload.xp = d.xp;
       if (d.hp_current != null) payload.hp_current = d.hp_current;
       if (d.hp_max != null) payload.hp_max = d.hp_max;
-      if (d.spell_slots) payload.spell_slots = d.spell_slots;
+      if (FULL_CASTER_CLASSES.has(d.character_class || '') && !d.spell_slots?.['1']) {
+        // Lanzador completo sin espacios cargados: se le dan los de su nivel (5e).
+        const maxSlots = fullCasterSlots(d.level ?? 1);
+        payload.spell_slots = { ...maxSlots, max1: maxSlots['1'] };
+      } else if (d.spell_slots) {
+        payload.spell_slots = d.spell_slots;
+      }
       if (d.skill_proficiencies?.length) payload.skill_proficiencies = d.skill_proficiencies;
       if (d.resistances?.length) payload.resistances = d.resistances;
       if (d.immunities?.length) payload.immunities = d.immunities;
@@ -142,7 +150,7 @@ export const CharacterForm = () => {
       if (d.senses?.length) payload.senses = d.senses;
       if (d.personality_traits) payload.personality_traits = d.personality_traits;
       if (d.inventory?.length) payload.inventory = d.inventory;
-      if (d.spells?.length) payload.spells = d.spells;
+      payload.spells = d.spells || [];
       if (d.conditions?.length) payload.conditions = d.conditions;
       if (d.inspiration != null) payload.inspiration = d.inspiration;
       if (d.notes) payload.notes = d.notes;
@@ -384,7 +392,10 @@ export const CharacterForm = () => {
 
               <fieldset className="cf-fieldset">
                 <legend className="cf-label">¿En qué es bueno?</legend>
-                <p className="cf-hint">Tocá las habilidades en las que el personaje está entrenado.</p>
+                <p className="cf-hint">
+                  Tocá las habilidades en las que el personaje está entrenado. Cuando hace una prueba de esa habilidad,
+                  suma su bonificador de competencia (sube con el nivel). Si no las tocás, igual puede intentarlo, pero sin ese bonificador.
+                </p>
                 <div className="cf-chips">
                   {SKILLS_5E.map((s) => {
                     const on = (d.skill_proficiencies || []).includes(s);
@@ -423,20 +434,20 @@ export const CharacterForm = () => {
                   value={(d.inventory || []).map(i => i.name).join('\n')}
                   onChange={(e) => set({ inventory: e.target.value.split('\n').map(x => x.trim()).filter(Boolean).map(name => ({ name })) })}
                 />
-                <span className="cf-hint">Un objeto por línea.</span>
+                <span className="cf-hint">
+                  Un objeto por línea. Si escribís "Poción de curación", podés usarla en combate: recupera 2d4 + 2 PV y se gasta una.
+                </span>
               </label>
 
-              <label className="cf-field">
-                <span className="cf-label">Hechizos</span>
-                <textarea
-                  className="cf-input cf-textarea"
-                  rows={4}
-                  placeholder={'Proyectil mágico\nCurar heridas\nEscudo'}
-                  value={(d.spells || []).map(s => s.name).join('\n')}
-                  onChange={(e) => set({ spells: e.target.value.split('\n').map(x => x.trim()).filter(Boolean).map(name => ({ name })) })}
+              <div className="cf-field">
+                <span className="cf-label">Conjuros</span>
+                <SpellPicker
+                  characterClass={d.character_class || ''}
+                  characterLevel={d.level ?? 1}
+                  selected={d.spells || []}
+                  onChange={(spells) => set({ spells })}
                 />
-                <span className="cf-hint">Uno por línea. Dejalo vacío si no lanza hechizos.</span>
-              </label>
+              </div>
 
               <label className="cf-field">
                 <span className="cf-label">Personalidad y notas</span>
