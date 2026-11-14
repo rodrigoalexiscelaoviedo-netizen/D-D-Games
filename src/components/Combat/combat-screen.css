@@ -258,3 +258,12 @@
 @media (prefers-reduced-motion: reduce) {
   .cs-token.is-hit { animation: none; }
 }
+
+/* Línea de ataque sobre el tablero */
+.cs-board { position: relative; }
+.cs-beam { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 2; }
+.cs-beam-line { stroke-width: 4; stroke-linecap: round; stroke-dasharray: 10 6; animation: cs-beam-run 0.6s linear infinite; }
+.cs-beam-line.is-hit { stroke: #d9482b; }
+.cs-beam-line.is-miss { stroke: #8a8a8a; }
+@keyframes cs-beam-run { to { stroke-dashoffset: -16; } }
+@media (prefers-reduced-motion: reduce) { .cs-beam-line { animation: none; } }

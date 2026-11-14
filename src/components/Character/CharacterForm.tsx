@@ -394,6 +394,26 @@ export const CharacterForm = () => {
           {step === 3 && (
             <section className="cf-card" aria-labelledby="cf-s3">
               <h2 id="cf-s3">Habilidades, equipo y magia</h2>
+              <details className="cf-explain">
+                <summary>¿Qué es cada cosa de este paso?</summary>
+                <ul>
+                  <li>
+                    <strong>Habilidades:</strong> lo que el personaje sabe hacer (atletismo, sigilo, persuasión…). Si la marcás,
+                    suma su bonificador de competencia cuando hace esa prueba.
+                  </li>
+                  <li>
+                    <strong>Idiomas:</strong> qué idiomas habla. Es para la historia; no cambia números.
+                  </li>
+                  <li>
+                    <strong>Equipo:</strong> lo que lleva. Una poción de curación se puede usar en combate. Si anotás un arma
+                    con sus dados, por ejemplo "Espada larga (1d8 cortante)", el ataque usa ese dado. Si no, usa el de la clase.
+                  </li>
+                  <li>
+                    <strong>Conjuros:</strong> los que puede lanzar, elegidos del SRD. Los trucos no gastan espacios; los de nivel 1
+                    o más sí, y se recuperan con un descanso largo.
+                  </li>
+                </ul>
+              </details>
 
               <fieldset className="cf-fieldset">
                 <legend className="cf-label">¿En qué es bueno?</legend>

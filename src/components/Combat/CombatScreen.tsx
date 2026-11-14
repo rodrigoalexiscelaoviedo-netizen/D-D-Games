@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { cerrarCombate, treasureForScene, type Aftermath } from '../../lib/combat-return';
@@ -165,6 +165,41 @@ export const CombatScreen = () => {
   const [spellsMap, setSpellsMap] = useState<Record<string, SpellEntry[]>>({});
   const [pickedSpell, setPickedSpell] = useState<string | null>(null);
   const [spellMenu, setSpellMenu] = useState(false);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [beam, setBeam] = useState<{
+    x1: number; y1: number; x2: number; y2: number; w: number; h: number; kind: 'hit' | 'miss';
+  } | null>(null);
+
+  // Mientras se muestra la tirada, dibuja una línea desde quien ataca hasta el objetivo.
+  // Las posiciones se miden en pantalla, así que no dependen del espaciado del tablero.
+  useEffect(() => {
+    if (!lastRoll || phase !== 'showing_roll' || !boardRef.current) {
+      setBeam(null);
+      return;
+    }
+    const actor = participants.find(
+      (p) => lastRoll.actorName === p.name || lastRoll.actorName.startsWith(`${p.name} ·`),
+    );
+    const target = participants.find((p) => p.name === lastRoll.targetName);
+    if (!actor || !target || actor.pos_x == null || actor.pos_y == null || target.pos_x == null || target.pos_y == null) {
+      setBeam(null);
+      return;
+    }
+    const board = boardRef.current.getBoundingClientRect();
+    const center = (x: number, y: number) => {
+      const el = boardRef.current?.querySelector(`[data-cell="${x}-${y}"]`);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.left - board.left + r.width / 2, y: r.top - board.top + r.height / 2 };
+    };
+    const a = center(actor.pos_x, actor.pos_y);
+    const b = center(target.pos_x, target.pos_y);
+    if (!a || !b) {
+      setBeam(null);
+      return;
+    }
+    setBeam({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, w: board.width, h: board.height, kind: lastRoll.hit ? 'hit' : 'miss' });
+  }, [lastRoll, phase, participants]);
   // Rol en esta partida y personaje propio. Define qué botones ve cada persona.
   const { user } = useAuth();
   const [myRole, setMyRole] = useState<'dm' | 'player' | null>(null);
@@ -293,6 +328,22 @@ export const CombatScreen = () => {
 
   const effectiveAC = (p: any) => (p?.armor_class ?? 10) + (p?.temp_ac_bonus ?? 0);
 
+  // Daño del arma: si el inventario tiene un objeto con dados (por ejemplo "Espada larga (1d8 cortante)"),
+  // el ataque usa ese dado. Las pociones se ignoran. Sin arma con dados, vale el dado de la clase.
+  const weaponDiceOf = (charId?: string | null): { count: number; sides: number } | null => {
+    if (!charId) return null;
+    const item = (inventoryMap[charId] ?? []).find((it: any) => {
+      const name = String(it?.name ?? '');
+      return /(\d+)d(\d+)/i.test(name) && !/poci[oó]n/i.test(name);
+    });
+    const m = item ? /(\d+)d(\d+)/i.exec(String(item.name)) : null;
+    return m ? { count: Number(m[1]), sides: Number(m[2]) } : null;
+  };
+  const weaponLabel = (p: any): string => {
+    const w = p?.is_player ? weaponDiceOf(p.character_id) : null;
+    return w ? `${w.count}d${w.sides}` : `d${p?.damage_dice ?? 8}`;
+  };
+
   // Resalta en el tablero a quien ataca y a quien recibe el golpe mientras se muestra la tirada.
   const tokenHighlight = (name: string): string => {
     if (!lastRoll || phase !== 'showing_roll') return '';
@@ -396,14 +447,28 @@ export const CombatScreen = () => {
     setBusy(true);
     setPickingTarget(null);
 
+    const weapon = current.is_player ? weaponDiceOf(current.character_id) : null;
+    const dmgBonus = current.is_player ? abilityMod(strMap[current.character_id]) : 0;
     const result = resolveAttack(
       current.attack_bonus ?? 2,
       effectiveAC(target),
-      current.damage_dice ?? 8,
-      current.is_player ? abilityMod(strMap[current.character_id]) : 0,
+      weapon?.sides ?? current.damage_dice ?? 8,
+      dmgBonus,
       target.status === 'dodging' ? 'disadvantage' : 'normal'
     );
-    setLastRoll({ ...result, actorName: current.name, targetName: target.name, dice: `d${current.damage_dice ?? 8}` });
+    if (weapon && weapon.count > 1 && result.hit) {
+      // Varias tiradas de daño: se tiran todas (en crítico, el doble) y se suma el modificador.
+      const dice = weapon.count * (result.critical ? 2 : 1);
+      let dmg = 0;
+      for (let i = 0; i < dice; i++) dmg += roll(weapon.sides);
+      result.damage = Math.max(1, dmg + dmgBonus);
+    }
+    setLastRoll({
+      ...result,
+      actorName: current.name,
+      targetName: target.name,
+      dice: weapon ? `${weapon.count}d${weapon.sides}` : `d${current.damage_dice ?? 8}`,
+    });
     setPhase('showing_roll');
 
     const outcome = targetOutcome(target, result);
@@ -876,7 +941,18 @@ export const CombatScreen = () => {
   // Mapa: las casillas a las que el personaje que juega puede moverse se marcan en dorado.
   const canMoveNow = canActNow && phase === 'awaiting_player' && !hasMovedThisTurn && !!current && !pickingTarget;
   const renderBoard = () => (
-    <div className="cs-board" role="grid" aria-label="Mapa del combate">
+    <div className="cs-board" role="grid" aria-label="Mapa del combate" ref={boardRef}>
+      {beam && (
+        <svg className="cs-beam" width={beam.w} height={beam.h} aria-hidden="true">
+          <line
+            className={`cs-beam-line is-${beam.kind}`}
+            x1={beam.x1}
+            y1={beam.y1}
+            x2={beam.x2}
+            y2={beam.y2}
+          />
+        </svg>
+      )}
       {Array.from({ length: BOARD_H }).map((_, y) => (
         <div key={y} className="cs-board-row" role="row">
           {Array.from({ length: BOARD_W }).map((_, x) => {
@@ -890,6 +966,7 @@ export const CombatScreen = () => {
               <button
                 key={x}
                 role="gridcell"
+                data-cell={`${x}-${y}`}
                 className={`cs-cell ${reachable ? 'is-reach' : ''} ${occ ? 'has-token' : ''} ${isCurrent ? 'is-current' : ''}`}
                 disabled={!reachable}
                 onClick={() => moveTo(x, y)}
@@ -1116,7 +1193,7 @@ export const CombatScreen = () => {
                   >
                     <span className="cs-action-title">Atacar</span>
                     <span className="cs-action-sub">
-                      Tirá un d20 y sumá {current?.attack_bonus ?? 2}. Si acierta, hace d{current?.damage_dice ?? 8} de daño.
+                      Tirá un d20 y sumá {current?.attack_bonus ?? 2}. Si acierta, hace {weaponLabel(current)} de daño.
                     </span>
                   </button>
 

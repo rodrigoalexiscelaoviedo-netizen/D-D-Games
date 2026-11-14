@@ -2,6 +2,7 @@ import type { PlayerSceneData, PlayerOptionData } from '../../lib/adventure-type
 import type { AdventureModule, ModuleScene } from '../../content/modules/types';
 import { PlayerVisuals } from './SceneVisuals';
 import { CombatWatch } from './CombatWatch';
+import { PLAYER_SCENE_HELP } from '../../content/scene-help';
 import './playthrough-screen.css';
 
 interface Props {
@@ -17,12 +18,21 @@ interface Props {
 }
 
 export const ScenePlayerView = ({ playthroughId, sceneId, scene, options, onSelectOption, isLoading, module, moduleScene, flags = {} }: Props) => {
-  const content =
+  const hint = PLAYER_SCENE_HELP[scene.scene_type] ? (
+    <p className="ps-hint">{PLAYER_SCENE_HELP[scene.scene_type]}</p>
+  ) : null;
+  const body =
     module && moduleScene ? (
       <PlayerVisuals module={module} scene={moduleScene} isDM={false} flags={flags} />
     ) : (
       scene.player_text && <p className="ps-player-text">{scene.player_text}</p>
     );
+  const content = (
+    <>
+      {hint}
+      {body}
+    </>
+  );
 
   if (scene.scene_type === 'combate') {
     return (

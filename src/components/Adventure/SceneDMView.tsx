@@ -33,14 +33,7 @@ const SCENE_TYPE_LABEL: Record<string, string> = {
   descanso: 'Descanso',
 };
 
-// Qué hace cada tipo de escena, para quien dirige (se muestra debajo del título de la escena).
-const SCENE_TYPE_HELP: Record<string, string> = {
-  narracion: 'Narrás y se sigue a la siguiente escena. No hay elección ni dados.',
-  decision: 'El grupo elige una de las opciones. Cada una lleva a una escena distinta.',
-  tirada: 'Se resuelve con una prueba de dados. Marcá si lo lograron o no: cambia por cuál opción sigue la historia.',
-  combate: 'Hay una pelea. Preparala, empezá el combate y, al final, elegí si el grupo ganó o perdió.',
-  descanso: 'El grupo puede recuperarse con descanso corto o largo desde el panel del grupo.',
-};
+import { SCENE_TYPE_HELP } from '../../content/scene-help';
 
 const paragraphs = (text: string) =>
   text.split('\n\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>);

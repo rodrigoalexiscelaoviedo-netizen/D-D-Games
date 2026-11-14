@@ -137,3 +137,8 @@
 .spell-picker-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .spell-picker-detail { margin-top: 0.4rem; font-size: 0.92rem; }
 .spell-picker-detail p { margin: 0.25rem 0; }
+
+/* Explicación de cada paso (¿Qué es cada cosa?) */
+.cf-explain { margin: 0.5rem 0 1rem; font-size: 0.92rem; }
+.cf-explain summary { cursor: pointer; font-weight: 600; }
+.cf-explain ul { margin: 0.5rem 0 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.4rem; }
