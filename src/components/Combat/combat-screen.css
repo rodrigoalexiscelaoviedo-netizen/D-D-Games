@@ -117,6 +117,8 @@
 .cs-row-name { display: inline-flex; align-items: center; gap: 10px; }
 .cs-row.is-down .cs-token { filter: grayscale(1); opacity: 0.6; }
 
+.cs-error-bar { margin: 12px 28px 0; padding: 10px 14px; border-radius: var(--radius); background: rgba(124, 45, 58, 0.25); border: 1px solid var(--wine-bright); color: var(--ink); }
+
 /* Mensajes de espera (cada persona sabe qué le toca) */
 .cs-waiting { padding: 12px 14px; border: 1px dashed var(--border-gold); border-radius: var(--radius); color: var(--ink-muted); }
 .cs-waiting strong { color: var(--gold-bright); font-family: var(--font-title); font-weight: 400; }

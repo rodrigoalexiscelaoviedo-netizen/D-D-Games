@@ -262,10 +262,21 @@ export const CombatScreen = () => {
 
     const newRound = nextIdx <= idx ? (combat?.round ?? 1) + 1 : combat?.round ?? 1;
 
-    await supabase
-      .from('combats')
-      .update({ turn_index: nextIdx, round: newRound, log: JSON.stringify(opts.newLog) })
-      .eq('id', combatId);
+    // Avanza el turno con validación en la base (sql/014): solo el director o el dueño del personaje que juega.
+    const { error: advanceError } = await supabase.rpc('combat_advance', {
+      p_combat_id: combatId,
+      p_expected_turn: idx,
+      p_new_turn: nextIdx,
+      p_new_round: newRound,
+      p_log: JSON.stringify(opts.newLog),
+    });
+    if (advanceError) {
+      setCloseError(
+        advanceError.message.includes('ya cambió')
+          ? 'El turno ya cambió. Refrescamos la pantalla.'
+          : 'No se pudo avanzar el turno. Revisá que la función esté instalada (sql/014).'
+      );
+    }
 
     await refetch();
   };
@@ -641,6 +652,12 @@ export const CombatScreen = () => {
       <p className="cs-hint-bar">
         Cada personaje juega en orden. Cuando juega un enemigo, el director narra lo que hace y toca “Continuar”.
       </p>
+
+      {closeError && !outcome && (
+        <p className="cs-error-bar" role="alert">
+          {closeError}
+        </p>
+      )}
 
       <div className="cs-body">
         <section className="cs-stage" aria-live="polite">
