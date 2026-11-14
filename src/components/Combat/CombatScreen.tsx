@@ -11,6 +11,7 @@ import type { RollResult } from '../../lib/combat-engine';
 import './combat-screen.css';
 import { audioManager } from '../../lib/audio';
 import { SoundToggle } from '../UI/SoundToggle';
+import { useAuth } from '../../hooks/useAuth';
 
 type Phase = 'awaiting_player' | 'awaiting_dm_continue' | 'showing_roll' | 'finished';
 
@@ -105,6 +106,10 @@ export const CombatScreen = () => {
   const [strMap, setStrMap] = useState<Record<string, number>>({});
   const [inventoryMap, setInventoryMap] = useState<Record<string, any[]>>({});
   const [spellSlotsMap, setSpellSlotsMap] = useState<Record<string, Record<string, number>>>({});
+  // Rol en esta partida y personaje propio. Define qué botones ve cada persona.
+  const { user } = useAuth();
+  const [myRole, setMyRole] = useState<'dm' | 'player' | null>(null);
+  const [myCharacterId, setMyCharacterId] = useState<string | null>(null);
   // Clases que gastan espacios de conjuro al usar su habilidad (5e: lanzadores de conjuros).
   const SPELLCASTERS = new Set(['Mago', 'Clérigo', 'Hechicero', 'Brujo', 'Bardo', 'Druida']);
   const [portraitMap, setPortraitMap] = useState<Record<string, string | null>>({});
@@ -137,6 +142,17 @@ export const CombatScreen = () => {
 
     setCombat(c);
     setParticipants(p || []);
+
+    // Mi rol en la partida (el director decide quién es, en el lobby).
+    if (c?.playthrough_id && user?.id) {
+      const { data: me } = await supabase
+        .from('playthrough_participants')
+        .select('role')
+        .eq('playthrough_id', c.playthrough_id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      setMyRole(me?.role === 'dm' ? 'dm' : 'player');
+    }
     try {
       setLog(JSON.parse(c?.log || '[]'));
     } catch {
@@ -147,8 +163,9 @@ export const CombatScreen = () => {
     if (charIds.length > 0) {
       const { data: chars } = await supabase
         .from('characters')
-        .select('id, character_class, str, portrait_url, inventory, spell_slots')
+        .select('id, character_class, str, portrait_url, inventory, spell_slots, player_user_id')
         .in('id', charIds);
+      setMyCharacterId((chars || []).find((ch) => ch.player_user_id === user?.id)?.id ?? null);
       const inv: Record<string, any[]> = {};
       const slots: Record<string, Record<string, number>> = {};
       (chars || []).forEach((c) => {
@@ -558,6 +575,9 @@ export const CombatScreen = () => {
 
   const outcome = isCombatOver(participants);
   const foes = enemies;
+  // El director controla todo (turnos enemigos y cualquier personaje). Un jugador actúa solo con su personaje, cuando le toca.
+  const isDirector = myRole === 'dm';
+  const canActNow = isDirector || (!!current?.character_id && current.character_id === myCharacterId);
 
   const rowStatus = (p: any) => {
     if (p.has_fled) return 'Huyó';
@@ -686,9 +706,13 @@ export const CombatScreen = () => {
                   : 'Todos los personajes están inconscientes.'}
               </p>
               {closeError && <p className="cs-hint" role="alert">{closeError}</p>}
-              <button className="cs-btn cs-btn-primary" onClick={finish} disabled={closing}>
-                {closing ? 'Guardando…' : outcome === 'victory' ? 'Repartir recompensas' : 'Ver qué pasa'}
-              </button>
+              {isDirector ? (
+                <button className="cs-btn cs-btn-primary" onClick={finish} disabled={closing}>
+                  {closing ? 'Guardando…' : outcome === 'victory' ? 'Repartir recompensas' : 'Ver qué pasa'}
+                </button>
+              ) : (
+                <p className="cs-hint cs-waiting">Esperá a que el director cierre el combate.</p>
+              )}
             </div>
           )}
 
@@ -738,7 +762,11 @@ export const CombatScreen = () => {
         </section>
 
         <section className="cs-actions" aria-label="Qué puede hacer el personaje">
-          {phase === 'awaiting_dm_continue' && (
+          {phase === 'awaiting_dm_continue' && !isDirector && (
+            <p className="cs-hint cs-waiting">El director narra el turno del enemigo. Esperá a que avance.</p>
+          )}
+
+          {phase === 'awaiting_dm_continue' && isDirector && (
             <button className="cs-action cs-action-main" disabled={busy} onClick={runEnemyTurn}>
               <span className="cs-action-title">Continuar</span>
               <span className="cs-action-sub">El enemigo ataca a uno de los personajes</span>
@@ -747,7 +775,13 @@ export const CombatScreen = () => {
 
           {phase === 'showing_roll' && <p className="cs-hint">Resolviendo el turno…</p>}
 
-          {phase === 'awaiting_player' && current && parseDying(current.status).dying && (
+          {phase === 'awaiting_player' && !canActNow && (
+            <p className="cs-hint cs-waiting">
+              Le toca a <strong>{current?.name}</strong>. Cuando sea tu turno, acá vas a ver lo que podés hacer.
+            </p>
+          )}
+
+          {phase === 'awaiting_player' && canActNow && current && parseDying(current.status).dying && (
             <button className="cs-action cs-action-main cs-action-danger" disabled={busy} onClick={doDeathSave}>
               <span className="cs-action-title">Tirar contra la muerte</span>
               <span className="cs-action-sub">
@@ -758,6 +792,7 @@ export const CombatScreen = () => {
           )}
 
           {phase === 'awaiting_player' &&
+            canActNow &&
             !pickingTarget &&
             !(current && parseDying(current.status).dying) &&
             (() => {

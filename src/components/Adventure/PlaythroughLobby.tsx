@@ -93,11 +93,33 @@ export const PlaythroughLobby = () => {
     }
   };
 
-  const isDM = playthrough?.user_id === user?.id;
   const currentUserParticipant = useMemo(
     () => participants.find((p) => p.user_id === user?.id) ?? null,
     [participants, user?.id]
   );
+  // El rol lo decide la fila del participante en la partida, no quién la creó.
+  const isDM = currentUserParticipant?.role === 'dm';
+
+  // El director pasa la dirección a otro participante (sql/012: set_playthrough_dm).
+  const handleMakeDm = async (targetUserId: string, name: string) => {
+    if (!window.confirm(`¿Pasar la dirección de la partida a ${name}? Vos pasás a ser jugador.`)) return;
+    setBusy(true);
+    setError('');
+    const { error: rpcError } = await supabase.rpc('set_playthrough_dm', {
+      p_playthrough_id: playthroughId,
+      p_new_dm: targetUserId,
+    });
+    setBusy(false);
+    if (rpcError) {
+      setError(
+        rpcError.message.includes('director')
+          ? 'Solo el director actual puede pasar la dirección.'
+          : 'No se pudo pasar la dirección. Revisá que la función esté instalada (sql/012).'
+      );
+      return;
+    }
+    await loadLobby();
+  };
   const dm = participants.find((p) => p.role === 'dm');
   const players = participants.filter((p) => p.role === 'player');
   const readyCount = players.filter((p) => p.confirmed).length;
@@ -277,6 +299,16 @@ export const PlaythroughLobby = () => {
                     <span className={`pl-badge ${player.confirmed ? 'pl-badge-ready' : 'pl-badge-wait'}`}>
                       {player.confirmed ? 'Listo' : 'Eligiendo…'}
                     </span>
+                    {isDM && !isMe && (
+                      <button
+                        className="pl-btn pl-btn-ghost pl-give-dm"
+                        disabled={busy}
+                        onClick={() => handleMakeDm(player.user_id, player.character?.character_name ?? 'este jugador')}
+                        title="Esta persona dirige la partida. Vos pasás a jugar un personaje."
+                      >
+                        Pasarle la dirección
+                      </button>
+                    )}
                   </li>
                 );
               })}

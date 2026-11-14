@@ -14,6 +14,7 @@ import { CombatAnimation } from '../Combat/CombatAnimations';
 import { findModuleByOrigin } from '../../content/modules';
 import './playthrough-screen.css';
 import { SoundToggle } from '../UI/SoundToggle';
+import { RecentEvents } from './RecentEvents';
 
 // Resumen en una línea de lo que dejó el combate (XP, niveles, personajes estabilizados).
 const describeAftermath = (a: Aftermath): string => {
@@ -212,23 +213,18 @@ export const PlaythroughScreen = () => {
       setOptionsLoaded(false);
 
       // Cargar rol del usuario en este playthrough
-      if (pt.user_id === user?.id) {
-        setIsDM(true);
-        setUserRole('dm');
-      } else {
-        // Buscar en participantes
-        const { data: participant } = await supabase
-          .from('playthrough_participants')
-          .select('role')
-          .eq('playthrough_id', playthroughId)
-          .eq('user_id', user?.id)
-          .single();
+      // El rol sale del participante (lo decidió el director en el lobby).
+      // Solo si la persona no tiene fila, se usa el creador de la partida como respaldo.
+      const { data: participant } = await supabase
+        .from('playthrough_participants')
+        .select('role')
+        .eq('playthrough_id', playthroughId)
+        .eq('user_id', user?.id)
+        .maybeSingle();
 
-        if (participant) {
-          setUserRole(participant.role === 'dm' ? 'dm' : 'player');
-          setIsDM(participant.role === 'dm');
-        }
-      }
+      const asDm = participant ? participant.role === 'dm' : pt.user_id === user?.id;
+      setIsDM(asDm);
+      setUserRole(asDm ? 'dm' : 'player');
 
       if (pt.current_scene_id) {
         const { data: sceneData } = await supabase
@@ -818,6 +814,8 @@ export const PlaythroughScreen = () => {
           </button>
         </div>
       )}
+
+      {playthroughId && <RecentEvents playthroughId={playthroughId} />}
 
       {/* Render combat animations overlay */}
       {combatAnimations.map((anim) => (
