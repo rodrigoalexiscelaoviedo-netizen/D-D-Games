@@ -97,9 +97,10 @@ export function rescaleSlots(
   characterClass: string,
   fromLevel: number,
   toLevel: number,
+  subclass?: string | null,
 ): Record<string, number> {
-  const oldMax = slotsFor(characterClass, fromLevel);
-  const newMax = slotsFor(characterClass, toLevel);
+  const oldMax = slotsFor(characterClass, fromLevel, subclass);
+  const newMax = slotsFor(characterClass, toLevel, subclass);
   const out: Record<string, number> = {};
   for (const key of Object.keys(newMax)) {
     const oldCount = oldMax[key] ?? 0;
@@ -223,9 +224,10 @@ export const SLOT_CASTER_CLASSES = new Set([
 ]);
 
 /** Espacios de conjuro máximos de una clase en un nivel, con el formato de la ficha ({ '1': 2, ... }). */
-export function slotsFor(characterClass: string, characterLevel: number): Record<string, number> {
+export function slotsFor(characterClass: string, characterLevel: number, subclass?: string | null): Record<string, number> {
   const lvl = Math.min(20, Math.max(1, Math.floor(characterLevel)));
   if (FULL_CASTER_CLASSES.has(characterClass)) return fullCasterSlots(lvl);
+  if (characterClass === 'Guerrero' && subclass === 'Caballero místico') return thirdCasterSlots(lvl);
   const row =
     characterClass === 'Paladín' || characterClass === 'Explorador'
       ? HALF_CASTER_SLOTS[lvl - 1]
@@ -244,4 +246,43 @@ export function slotsFor(characterClass: string, characterLevel: number): Record
     return { [String(pact.level)]: pact.count };
   }
   return {};
+}
+
+/**
+ * Caballero místico (Guerrero, 5e): lanzador de tercer nivel. Espacios por nivel de personaje (índice 0 = nivel 1).
+ * Verificar contra el Manual del Jugador antes de publicar.
+ */
+const THIRD_CASTER_SLOTS: number[][] = [
+  [], [], [2], [3], [3], [3],
+  [4, 2], [4, 2], [4, 2],
+  [4, 3], [4, 3], [4, 3],
+  [4, 3, 2], [4, 3, 2], [4, 3, 2],
+  [4, 3, 3], [4, 3, 3], [4, 3, 3],
+  [4, 3, 3, 1], [4, 3, 3, 1],
+];
+
+/** Subclase que lanza conjuros siendo Guerrero. */
+export const KNIGHT_SUBCLASS = 'Caballero místico';
+
+/** ¿La clase (con su subclase) usa espacios de conjuro? */
+export function hasSpellSlots(characterClass: string | null | undefined, subclass?: string | null): boolean {
+  const cls = characterClass ?? '';
+  return SLOT_CASTER_CLASSES.has(cls) || (cls === 'Guerrero' && subclass === KNIGHT_SUBCLASS);
+}
+
+/** Espacios de un tercer lanzador (Caballero místico) en un nivel de personaje. */
+export function thirdCasterSlots(characterLevel: number): Record<string, number> {
+  const lvl = Math.min(20, Math.max(1, Math.floor(characterLevel)));
+  const row = THIRD_CASTER_SLOTS[lvl - 1] ?? [];
+  const out: Record<string, number> = {};
+  row.forEach((count, i) => {
+    out[String(i + 1)] = count;
+  });
+  return out;
+}
+
+/** Nivel máximo de conjuro que puede lanzar el Caballero místico en un nivel de personaje. */
+export function knightMaxSpellLevel(characterLevel: number): number {
+  const keys = Object.keys(thirdCasterSlots(characterLevel)).map(Number);
+  return keys.length ? Math.max(...keys) : 0;
 }

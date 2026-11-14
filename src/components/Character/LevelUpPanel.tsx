@@ -4,10 +4,12 @@ import { SUBCLASSES } from '../../content/subclasses';
 import {
   ABILITY_LABEL,
   applyAbilityIncreases,
+  knightKnownAt,
   needsSubclass,
   type Ability,
   type AbilityIncrease,
 } from '../../lib/level-up';
+import { knightMaxSpellLevel, KNIGHT_SUBCLASS } from '../../lib/spell-catalog';
 import type { SpellEntry } from '../../lib/types';
 import { SpellPicker } from './SpellPicker';
 
@@ -46,7 +48,12 @@ export const LevelUpPanel = ({ sheet, onSaved }: { sheet: LevelUpSheet; onSaved:
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  if (!needSub && sheet.pending_asi === 0 && sheet.pending_spells === 0) return null;
+  // Caballero místico: al elegirla recibe sus conjuros iniciales (solo Abjuración y Evocación).
+  const isKnight = sheet.character_class === 'Guerrero' && (needSub ? subclass : sheet.subclass) === KNIGHT_SUBCLASS;
+  const knightStartSpells = needSub && isKnight ? knightKnownAt(sheet.level) : 0;
+  const spellsNeeded = sheet.pending_spells + knightStartSpells;
+
+  if (!needSub && sheet.pending_asi === 0 && spellsNeeded === 0) return null;
 
   const updateAsi = (i: number, patch: Partial<AsiChoice>) =>
     setAsi((list) => list.map((c, j) => (j === i ? { ...c, ...patch } : c)));
@@ -57,8 +64,8 @@ export const LevelUpPanel = ({ sheet, onSaved }: { sheet: LevelUpSheet; onSaved:
       setError('Elegí la subclase antes de guardar.');
       return;
     }
-    if (sheet.pending_spells > 0 && newSpells.length !== sheet.pending_spells) {
-      setError(`Elegí exactamente ${sheet.pending_spells} conjuros nuevos (llevás ${newSpells.length}).`);
+    if (spellsNeeded > 0 && newSpells.length !== spellsNeeded) {
+      setError(`Elegí exactamente ${spellsNeeded} conjuros nuevos (llevás ${newSpells.length}).`);
       return;
     }
 
@@ -185,18 +192,24 @@ export const LevelUpPanel = ({ sheet, onSaved }: { sheet: LevelUpSheet; onSaved:
         </fieldset>
       )}
 
-      {sheet.pending_spells > 0 && (
+      {spellsNeeded > 0 && (
         <fieldset className="lu-block">
           <legend>Conjuros nuevos</legend>
-          <p className="lu-hint">Elegí {sheet.pending_spells} conjuros nuevos de tu clase y de tu nivel.</p>
+          <p className="lu-hint">
+            {isKnight
+              ? `Elegí ${spellsNeeded} conjuros de Abjuración o Evocación, hasta nivel ${knightMaxSpellLevel(sheet.level)}.`
+              : `Elegí ${spellsNeeded} conjuros nuevos de tu clase y de tu nivel.`}
+          </p>
           <SpellPicker
-            characterClass={sheet.character_class ?? ''}
+            characterClass={isKnight ? 'Mago' : sheet.character_class ?? ''}
             characterLevel={sheet.level}
             selected={newSpells}
             onChange={setNewSpells}
-            limit={sheet.pending_spells}
+            limit={spellsNeeded}
             exclude={sheet.spells.map((s) => s.name)}
             minLevel={1}
+            maxSpellLevel={isKnight ? knightMaxSpellLevel(sheet.level) : undefined}
+            schools={isKnight ? ['Abjuration', 'Evocation'] : undefined}
           />
         </fieldset>
       )}

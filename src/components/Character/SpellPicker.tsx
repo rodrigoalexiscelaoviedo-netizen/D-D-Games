@@ -13,6 +13,10 @@ interface Props {
   exclude?: string[];
   /** Nivel mínimo de conjuro que se ofrece (1 para no mostrar trucos). */
   minLevel?: number;
+  /** Nivel máximo de conjuro propio (por ejemplo, el del Caballero místico). */
+  maxSpellLevel?: number;
+  /** Escuelas permitidas (en inglés, como en el SRD). Sin valor, todas. */
+  schools?: string[];
 }
 
 const levelLabel = (level: number) => (level === 0 ? 'Truco' : `Nivel ${level}`);
@@ -30,25 +34,31 @@ export const SpellPicker = ({
   limit,
   exclude = [],
   minLevel = 0,
+  maxSpellLevel,
+  schools,
 }: Props) => {
   const [query, setQuery] = useState('');
   const [levelFilter, setLevelFilter] = useState<number | 'all'>('all');
   const [openSlug, setOpenSlug] = useState<string | null>(null);
 
   const isFull = FULL_CASTER_CLASSES.has(characterClass);
-  const maxLevel = isFull
-    ? Math.max(...Object.keys(fullCasterSlots(characterLevel)).map(Number))
-    : 9;
+  const maxLevel =
+    maxSpellLevel ??
+    (isFull ? Math.max(...Object.keys(fullCasterSlots(characterLevel)).map(Number)) : 9);
 
   const excludeKey = exclude.join('|');
+  const schoolKey = (schools ?? []).join('|');
   const available = useMemo(
     () =>
       characterClass
         ? spellsForClass(characterClass, maxLevel).filter(
-            (s) => s.level >= minLevel && !excludeKey.split('|').includes(s.name),
+            (s) =>
+              s.level >= minLevel &&
+              !excludeKey.split('|').includes(s.name) &&
+              (!schoolKey || schoolKey.split('|').includes(s.school)),
           )
         : [],
-    [characterClass, maxLevel, minLevel, excludeKey],
+    [characterClass, maxLevel, minLevel, excludeKey, schoolKey],
   );
 
   if (!characterClass) {
@@ -86,7 +96,7 @@ export const SpellPicker = ({
   return (
     <div className="spell-picker">
       <p className="cf-hint">
-        {isFull
+        {isFull || maxSpellLevel !== undefined
           ? `Hasta nivel de conjuro ${maxLevel} según tu nivel ${characterLevel}.`
           : 'Elegí los conjuros que tu personaje conoce o prepara.'}{' '}
         Elegidos: {selected.length}. Los trucos (Truco) no gastan espacios; los de nivel 1 o más gastan un espacio de su nivel cada vez que se lanzan.

@@ -43,16 +43,27 @@ export interface LevelGains {
 }
 
 /**
+ * Conjuros conocidos del Caballero místico por nivel de personaje (índice 0 = nivel 1).
+ * Solo de Abjuración y Evocación (más dos de otra escuela, que la app no limita). Trucos no incluidos.
+ * Verificar contra el Manual del Jugador antes de publicar.
+ */
+const KNIGHT_KNOWN = [0, 0, 3, 4, 4, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 11, 11, 12, 13];
+
+export const knightKnownAt = (level: number): number => KNIGHT_KNOWN[Math.min(20, Math.max(1, level)) - 1] ?? 0;
+
+/**
  * Lo que gana un personaje al subir de `from` a `to`.
  * El Mago suma 2 conjuros al libro por nivel; los lanzadores con lista de conjuros conocidos
  * suman la diferencia de la tabla. Los que preparan conjuros no aprenden nada al subir.
  */
-export function levelUpGains(characterClass: string, from: number, to: number): LevelGains {
+export function levelUpGains(characterClass: string, from: number, to: number, subclass?: string | null): LevelGains {
   const asi = ASI_LEVELS.filter((l) => l > from && l <= to).length;
   let spells = 0;
   if (to > from) {
     if (characterClass === 'Mago') {
       spells = 2 * (to - from);
+    } else if (characterClass === 'Guerrero' && subclass === 'Caballero místico') {
+      spells = knightKnownAt(to) - knightKnownAt(from);
     } else if (KNOWN_SPELLS[characterClass]) {
       spells = knownAt(characterClass, to) - knownAt(characterClass, from);
     }

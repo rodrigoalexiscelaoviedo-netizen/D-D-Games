@@ -60,12 +60,14 @@ export const resolveAttack = (
   targetAC: number,
   damageDice: number,
   damageBonus: number = 0,
-  mode: RollMode = 'normal'
+  mode: RollMode = 'normal',
+  critRange: number = 20
 ): RollResult => {
   const d20 = rollD20(mode);
   const total = d20 + attackBonus;
   const fumble = d20 === 1;
-  const critical = d20 === 20;
+  // Crítico desde 'critRange' (20 por defecto; el Campeón del Guerrero lo baja a 19).
+  const critical = d20 >= critRange;
   const hit = critical || (!fumble && total >= targetAC);
 
   let damage = 0;
@@ -82,7 +84,7 @@ export const resolveAttack = (
   if (fumble) {
     explanation = `Sacó 1 natural — falla automática, no importa la CA.`;
   } else if (critical) {
-    explanation = `Sacó 20 natural — crítico. Se tira el dado de daño dos veces.`;
+    explanation = `Sacó ${d20} natural — crítico. Se tira el dado de daño dos veces.`;
   } else if (hit) {
     explanation = `${d20} + ${attackBonus} de bonificador = ${total}, contra CA ${targetAC}${modeNote}. Alcanza, así que golpea.`;
   } else {

@@ -146,6 +146,10 @@ const RollingDie = ({ value }: { value: number }) => {
 };
 type PickingFor = 'attack' | 'ability' | 'spell' | null;
 
+// Maestro de batalla (5e): cantidad y tamaño de los dados de superioridad según el nivel.
+const superiorityMaxFor = (level: number): number => (level >= 15 ? 6 : level >= 7 ? 5 : 4);
+const superiorityDieFor = (level: number): number => (level >= 18 ? 12 : level >= 10 ? 10 : 8);
+
 export const CombatScreen = () => {
   const { campaignId, combatId } = useParams();
   const navigate = useNavigate();
@@ -163,6 +167,9 @@ export const CombatScreen = () => {
   const [inventoryMap, setInventoryMap] = useState<Record<string, any[]>>({});
   const [spellSlotsMap, setSpellSlotsMap] = useState<Record<string, Record<string, number>>>({});
   const [spellsMap, setSpellsMap] = useState<Record<string, SpellEntry[]>>({});
+  const [subclassMap, setSubclassMap] = useState<Record<string, string | null>>({});
+  const [levelMap, setLevelMap] = useState<Record<string, number>>({});
+  const [maneuverNext, setManeuverNext] = useState(false);
   const [pickedSpell, setPickedSpell] = useState<string | null>(null);
   const [spellMenu, setSpellMenu] = useState(false);
   const boardRef = useRef<HTMLDivElement>(null);
@@ -273,7 +280,7 @@ export const CombatScreen = () => {
     if (charIds.length > 0) {
       const { data: chars } = await supabase
         .from('characters')
-        .select('id, character_class, str, dex, int, wis, cha, portrait_url, inventory, spell_slots, spells, player_user_id')
+        .select('id, character_class, subclass, level, str, dex, int, wis, cha, portrait_url, inventory, spell_slots, spells, player_user_id')
         .in('id', charIds);
       setMyCharacterId((chars || []).find((ch) => ch.player_user_id === user?.id)?.id ?? null);
       const inv: Record<string, any[]> = {};
@@ -284,6 +291,20 @@ export const CombatScreen = () => {
       });
       setInventoryMap(inv);
       setSpellSlotsMap(slots);
+      setSubclassMap(Object.fromEntries((chars || []).map((c) => [c.id, c.subclass ?? null])));
+      setLevelMap(Object.fromEntries((chars || []).map((c) => [c.id, c.level ?? 1])));
+      // Maestro de batalla: al empezar el combate cada uno recibe sus dados de superioridad.
+      let changed = false;
+      for (const part of (p || []) as any[]) {
+        const ch = (chars || []).find((x) => x.id === part.character_id);
+        if (ch && ch.character_class === 'Guerrero' && ch.subclass === 'Maestro de batalla' && part.superiority_dice == null) {
+          const max = superiorityMaxFor(ch.level ?? 3);
+          await supabase.from('combat_participants').update({ superiority_dice: max }).eq('id', part.id);
+          part.superiority_dice = max;
+          changed = true;
+        }
+      }
+      if (changed) setParticipants([...(p || [])]);
       setSpellsMap(
         Object.fromEntries((chars || []).map((c) => [c.id, Array.isArray(c.spells) ? (c.spells as SpellEntry[]) : []])),
       );
@@ -437,7 +458,7 @@ export const CombatScreen = () => {
     setBusy(false);
   };
 
-  const doAttack = async (target: any) => {
+  const doAttack = async (target: any, maneuver = false) => {
     if (busy || !current) return;
     if (distance(current, target) > MELEE_REACH) {
       setPickingTarget(null); // cierra el selector para que vuelvan las acciones
@@ -446,6 +467,7 @@ export const CombatScreen = () => {
     }
     setBusy(true);
     setPickingTarget(null);
+    setManeuverNext(false);
 
     const weapon = current.is_player ? weaponDiceOf(current.character_id) : null;
     const dmgBonus = current.is_player ? abilityMod(strMap[current.character_id]) : 0;
@@ -454,7 +476,9 @@ export const CombatScreen = () => {
       effectiveAC(target),
       weapon?.sides ?? current.damage_dice ?? 8,
       dmgBonus,
-      target.status === 'dodging' ? 'disadvantage' : 'normal'
+      target.status === 'dodging' ? 'disadvantage' : 'normal',
+      // Campeón del Guerrero: crítico con 19 o 20.
+      current.is_player && subclassMap[current.character_id] === 'Campeón' ? 19 : 20
     );
     if (weapon && weapon.count > 1 && result.hit) {
       // Varias tiradas de daño: se tiran todas (en crítico, el doble) y se suma el modificador.
@@ -463,6 +487,22 @@ export const CombatScreen = () => {
       for (let i = 0; i < dice; i++) dmg += roll(weapon.sides);
       result.damage = Math.max(1, dmg + dmgBonus);
     }
+    // Golpe de maniobra: gasta un dado de superioridad y lo suma al daño si acierta.
+    let maneuverNote = '';
+    const dice: number | null | undefined = (current as any).superiority_dice;
+    // 5e: el dado se gasta al elegir la maniobra, acierte o no. Solo suma daño si el golpe acierta.
+    if (maneuver && typeof dice === 'number' && dice > 0) {
+      const die = superiorityDieFor(levelMap[current.character_id] ?? 3);
+      await supabase.from('combat_participants').update({ superiority_dice: dice - 1 }).eq('id', current.id);
+      if (result.hit) {
+        const bonusDamage = roll(die);
+        result.damage += bonusDamage;
+        maneuverNote = ` Golpe de maniobra: +${bonusDamage} de daño (d${die}).`;
+      } else {
+        maneuverNote = ' Golpe de maniobra: gastó un dado, pero no acertó.';
+      }
+    }
+
     setLastRoll({
       ...result,
       actorName: current.name,
@@ -473,7 +513,7 @@ export const CombatScreen = () => {
 
     const outcome = targetOutcome(target, result);
     const newHp = outcome.hp;
-    const line = describeAttack(current.name, target.name, effectiveAC(target), result, newHp);
+    const line = describeAttack(current.name, target.name, effectiveAC(target), result, newHp) + maneuverNote;
 
     if (result.hit) {
       addAnimation('damage', result.damage, window.innerWidth / 2, window.innerHeight / 2);
@@ -583,6 +623,13 @@ export const CombatScreen = () => {
       await commitTurn({ newLog: [...log, line], targetId: target.id, newTargetHp: newHp, targetStatus: outcome.status });
       setBusy(false);
     }, 2200);
+  };
+
+  // Golpe de maniobra del Maestro de batalla: como un ataque, pero con un dado de superioridad.
+  const startManeuver = () => {
+    if (aliveEnemies.length === 1) return doAttack(aliveEnemies[0], true);
+    setManeuverNext(true);
+    return setPickingTarget('attack');
   };
 
   // Lanzar un conjuro elegido en la ficha. Es la acción del turno (no usa la habilidad de clase).
@@ -1197,6 +1244,21 @@ export const CombatScreen = () => {
                     </span>
                   </button>
 
+                  {current?.is_player && typeof (current as any).superiority_dice === 'number' && (
+                    <button
+                      className="cs-action"
+                      disabled={busy || (current as any).superiority_dice <= 0}
+                      onClick={startManeuver}
+                    >
+                      <span className="cs-action-title">Golpe de maniobra</span>
+                      <span className="cs-action-sub">
+                        {(current as any).superiority_dice > 0
+                          ? `Ataque con un dado de superioridad (d${superiorityDieFor(levelMap[current.character_id] ?? 3)} al daño). Te quedan ${(current as any).superiority_dice}.`
+                          : 'Ya no te quedan dados de superioridad en este combate.'}
+                      </span>
+                    </button>
+                  )}
+
                   <button className="cs-action" disabled={busy} onClick={doDefend}>
                     <span className="cs-action-title">Defenderse</span>
                     <span className="cs-action-sub">Hasta tu próximo turno, los ataques contra vos tienen desventaja.</span>
@@ -1282,7 +1344,7 @@ export const CombatScreen = () => {
                   className="cs-action cs-action-main"
                   onClick={() =>
                     pickingTarget === 'attack'
-                      ? doAttack(e)
+                      ? doAttack(e, maneuverNext)
                       : pickingTarget === 'spell' && pickedSpell
                         ? doSpell(pickedSpell, e)
                         : doAbility(e)

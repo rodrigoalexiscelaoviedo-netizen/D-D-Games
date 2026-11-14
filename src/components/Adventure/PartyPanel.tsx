@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { xpForNextLevel } from '../../lib/combat-return';
 import { abilityMod, roll } from '../../lib/combat-engine';
-import { SLOT_CASTER_CLASSES, slotsFor } from '../../lib/spell-catalog';
+import { hasSpellSlots, slotsFor } from '../../lib/spell-catalog';
 
 interface Member {
   id: string;
   character_name: string;
   character_class?: string | null;
+  subclass?: string | null;
   race?: string | null;
   level?: number | null;
   xp?: number | null;
@@ -38,7 +39,7 @@ export const PartyPanel = ({ campaignId }: { campaignId: string }) => {
   const load = async () => {
     const { data } = await supabase
       .from('characters')
-      .select('id, character_name, character_class, race, level, xp, con, hit_dice_left, hp_current, hp_max, portrait_url, spell_slots')
+      .select('id, character_name, character_class, subclass, race, level, xp, con, hit_dice_left, hp_current, hp_max, portrait_url, spell_slots')
       .eq('campaign_id', campaignId)
       .order('character_name', { ascending: true });
     setParty((data ?? []) as Member[]);
@@ -68,9 +69,9 @@ export const PartyPanel = ({ campaignId }: { campaignId: string }) => {
         patch.hp_current = max;
         patch.hit_dice_left = Math.min(level, diceLeft + Math.max(1, Math.floor(level / 2)));
         const slots = m.spell_slots ?? {};
-        if (SLOT_CASTER_CLASSES.has(m.character_class ?? '')) {
+        if (hasSpellSlots(m.character_class, m.subclass)) {
           // Lanzador: vuelven todos los espacios de su clase y nivel.
-          const maxSlots = slotsFor(m.character_class ?? '', level);
+          const maxSlots = slotsFor(m.character_class ?? '', level, m.subclass);
           patch.spell_slots = { ...maxSlots, max1: maxSlots['1'] };
         } else if (typeof slots['max1'] === 'number') {
           patch.spell_slots = { ...slots, '1': slots['max1'] };

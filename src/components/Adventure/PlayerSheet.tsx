@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { xpForNextLevel } from '../../lib/combat-return';
 import type { SpellEntry } from '../../lib/types';
 import { LevelUpPanel } from '../Character/LevelUpPanel';
-import { SLOT_CASTER_CLASSES } from '../../lib/spell-catalog';
+import { hasSpellSlots } from '../../lib/spell-catalog';
 
 interface Sheet {
   id: string;
@@ -33,7 +33,6 @@ interface Sheet {
 }
 
 // Clases que usan espacios de conjuro (igual que en el combate).
-const CASTERS = SLOT_CASTER_CLASSES;
 
 const mod = (score: number | null) => (score == null ? '—' : `${Math.floor((score - 10) / 2) >= 0 ? '+' : ''}${Math.floor((score - 10) / 2)}`);
 
@@ -176,7 +175,7 @@ export const PlayerSheet = ({ playthroughId }: { playthroughId: string }) => {
         </ul>
       </div>
 
-      {CASTERS.has(sheet.character_class ?? '') && (
+      {hasSpellSlots(sheet.character_class, sheet.subclass) && (
         <div className="ps-sheet-block">
           <h3>Espacios de conjuro</h3>
           <p className="ps-panel-note">
